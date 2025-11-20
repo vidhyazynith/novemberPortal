@@ -34,6 +34,8 @@ const ReportsBilling = () => {
   const [transactionNumber, setTransactionNumber] = useState('');
   const [transactionProof, setTransactionProof] = useState(null);
   const [activeTab, setActiveTab] = useState('active'); // 'active' or 'disabled'
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sentEmails, setSentEmails] = useState(new Set());
  
   // New states for Profit & Loss report
   const [startDate, setStartDate] = useState('');
@@ -447,6 +449,95 @@ const ReportsBilling = () => {
     return disabledInvoices.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
+  //Open outlook
+  // NEW: Handle sending email with tick mark
+  const handleSendEmail = async (invoice) => {
+    // Get customer email from invoice data
+    const customerEmail = invoice.customerId?.email;
+   
+    if (!customerEmail) {
+      alert('Customer email not found');
+      return;
+    }
+ 
+    setSendingEmail(true);
+ 
+    try {
+      // Format invoice details
+      const invoiceNumber = invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`;
+      const customerName = invoice.customerId?.name || 'Customer';
+      const invoiceAmount = `${currencySymbols[invoice.currency] || '$'}${formatInvoiceAmount(invoice)}`;
+      const invoiceDate = new Date(invoice.date).toLocaleDateString();
+      const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A';
+      const status = checkInvoiceStatus(invoice);
+     
+      const subject = `Invoice ${invoiceNumber} from Your Company`;
+      const body = `Dear ${customerName},\n\nPlease find your invoice details below:\n\nInvoice Number: ${invoiceNumber}\nDate: ${invoiceDate}\nDue Date: ${dueDate}\nAmount: ${invoiceAmount}\nStatus: ${status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Unpaid'}\n\nPlease make the payment by the due date.\n\nThank you for your business!\n\nBest regards,\nYour Company Team`;
+ 
+      // Try multiple Outlook URLs to find one that works without re-login
+      const outlookUrls = [
+        `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+        `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+        `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+      ];
+ 
+      // Try the first URL (Outlook Office 365)
+      const outlookWindow = window.open(outlookUrls[0], '_blank', 'width=800,height=600');
+     
+      // If popup was blocked or failed, try alternatives
+      if (!outlookWindow || outlookWindow.closed || typeof outlookWindow.closed === 'undefined') {
+        const fallbackWindow = window.open(outlookUrls[1], '_blank');
+       
+        if (!fallbackWindow) {
+          window.location.href = outlookUrls[2];
+        }
+      }
+ 
+      // NEW: Add to sent emails set (this creates the tick mark)
+      setSentEmails(prev => new Set(prev).add(invoice._id));
+ 
+      // Update invoice status to "sent" using the existing updateInvoice function
+      try {
+        // Create update data with status field
+        const updateData = {
+          status: 'sent',
+          // Include other required fields
+          customerId: invoice.customerId._id,
+          items: invoice.items,
+          totalAmount: invoice.totalAmount,
+          invoiceDate: invoice.date,
+          dueDate: invoice.dueDate,
+          taxPercent: invoice.taxPercent || 0,
+          notes: invoice.notes || '',
+          currency: invoice.currency || 'USD'
+        };
+ 
+        await billingService.updateInvoice(invoice._id, updateData);
+       
+        // Update local state to reflect the status change
+        setInvoices(prevInvoices =>
+          prevInvoices.map(inv =>
+            inv._id === invoice._id
+              ? { ...inv, status: 'sent' }
+              : inv
+          )
+        );
+       
+        alert('Email opened! Status updated to "Sent".');
+      } catch (error) {
+        console.error('Error updating invoice status:', error);
+        // Even if backend update fails, keep the tick mark
+        alert('Email opened! There was an error updating the status.');
+      }
+ 
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Error preparing email. Please try again.');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   return (
     <div className="reports-billing-container">
       {/* Header Section */}
@@ -563,6 +654,32 @@ const ReportsBilling = () => {
                         <td className="invoice-actions" data-label="Actions">
                           <div className="inv-action-buttons responsive-actions">
                             {/* NEW: Edit Button */}
+                            {/* Send Email Button with Tick Mark */}
+                            <button
+                              className={`inv-action-btn send ${sentEmails.has(invoice._id) ? 'sent' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSendEmail(invoice);
+                              }}
+                              title={sentEmails.has(invoice._id) ? "Email Sent" : "Send via Email"}
+                              disabled={sendingEmail}
+                            >
+                              {sendingEmail ? (
+                                <span className="loading-spinner"></span>
+                              ) : sentEmails.has(invoice._id) ? (
+                                // TICK MARK - Email has been sent
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M20 6L9 17l-5-5" stroke="#10B981" fill="none"/>
+                                </svg>
+                              ) : (
+                                // EMAIL ICON - Email not sent yet
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                  <polyline points="22,6 12,13 2,6"></polyline>
+                                </svg>
+                              )}
+                            </button>
+                            
                             <button
                               className="inv-action-btn edit"
                               onClick={(e) => {

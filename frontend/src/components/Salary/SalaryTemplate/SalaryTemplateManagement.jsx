@@ -12,19 +12,9 @@ const SalaryTemplateManagement = () => {
   const [selectedTemplateDetail, setSelectedTemplateDetail] = useState(null);
   const [showTemplateDetail, setShowTemplateDetail] = useState(false);
 
-  // Common designations for dropdown
-  const commonDesignations = [
-    'Junior Developer',
-    'Senior Developer',
-    'Team Lead',
-    'Project Manager',
-    'UI/UX Designer',
-    'QA Engineer',
-    'DevOps Engineer',
-    'System Analyst',
-    'Technical Architect',
-    'Product Manager'
-  ];
+  // NEW: State for dynamic designations
+  const [designations, setDesignations] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     designation: '',
@@ -42,7 +32,51 @@ const SalaryTemplateManagement = () => {
 
   useEffect(() => {
     loadTemplates();
+    loadDesignations(); // Load designations when component mounts
   }, []);
+
+  // NEW: Load designations from backend
+  const loadDesignations = async () => {
+    setCategoriesLoading(true);
+    try {
+      const designationsData = await salaryTemplateService.getEmployeeDesignations();
+      
+      if (designationsData.success) {
+        setDesignations(designationsData.data || []);
+      } else {
+        // Fallback to default values if API fails
+        setDesignations([
+          { name: 'Junior Developer' },
+          { name: 'Senior Developer' },
+          { name: 'Team Lead' },
+          { name: 'Project Manager' },
+          { name: 'UI/UX Designer' },
+          { name: 'QA Engineer' },
+          { name: 'DevOps Engineer' },
+          { name: 'System Analyst' },
+          { name: 'Technical Architect' },
+          { name: 'Product Manager' }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error loading designations:', error);
+      // Fallback to default values if API fails
+      setDesignations([
+        { name: 'Junior Developer' },
+        { name: 'Senior Developer' },
+        { name: 'Team Lead' },
+        { name: 'Project Manager' },
+        { name: 'UI/UX Designer' },
+        { name: 'QA Engineer' },
+        { name: 'DevOps Engineer' },
+        { name: 'System Analyst' },
+        { name: 'Technical Architect' },
+        { name: 'Product Manager' }
+      ]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
 
   // Calculate values when form data changes
   useEffect(() => {
@@ -214,6 +248,11 @@ const SalaryTemplateManagement = () => {
     setLoading(true);
 
     try {
+       if (!designations.some(d => d.name === formData.designation)) {
+        alert('Please select a valid designation from the list');
+        setLoading(false);
+        return;
+      }
       // Round all amounts before submitting
       const submitData = {
         ...formData,
@@ -345,7 +384,7 @@ const SalaryTemplateManagement = () => {
           </div>
           <div className="stat-card">
             <div className="stat-value">
-              {commonDesignations.length}
+              {designations.length}
             </div>
             <div className="stat-label">Available Roles</div>
           </div>
@@ -428,7 +467,7 @@ const SalaryTemplateManagement = () => {
                       </td>
                       <td>
                         <div className="table-actions" onClick={(e) => e.stopPropagation()}>
-                          <button
+                          {/* <button
                             className="action-btns primary"
                             onClick={() => handleTemplateDetail(template)}
                             title="View Details"
@@ -437,7 +476,7 @@ const SalaryTemplateManagement = () => {
                               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                               <circle cx="12" cy="12" r="3"></circle>
                             </svg>
-                          </button>
+                          </button> */}
                           <button
                             className="action-btns"
                             onClick={() => handleEditTemplate(template)}
@@ -624,18 +663,21 @@ const SalaryTemplateManagement = () => {
                           value={formData.designation}
                           onChange={handleInputChange}
                           required
-                          disabled={!!editingTemplate}
+                          disabled={!!editingTemplate ||categoriesLoading}
                         >
-                          <option value="">Select Designation</option>
-                          {commonDesignations.map(designation => (
-                            <option key={designation} value={designation}>
-                              {designation}
+                         <option value="">{categoriesLoading ? 'Loading designations...' : 'Select Designation'}</option>
+                          {designations.map((category, index) => (
+                            <option key={index} value={category.name}>
+                              {category.name}
                             </option>
                           ))}
                         </select>
                         <small className="form-help">
                           {editingTemplate ? 'Designation cannot be changed' : 'Select the role/designation for this template'}
                         </small>
+                              {categoriesLoading && (
+                          <small style={{ color: '#64748b' }}>Loading designations...</small>
+                        )}
                       </div>
                       <div className="form-group">
                         <label className="form-label">Basic Salary (Monthly) *</label>

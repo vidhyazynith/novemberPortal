@@ -87,10 +87,10 @@ const CategorySettings = () => {
 
   return (
     <div className="category-settings">
-      <div className="settings-header">
+      {/* <div className="settings-header">
         <h2>Category Management</h2>
        
-      </div>
+      </div> */}
 
       {error && (
         <div className="error-banner">

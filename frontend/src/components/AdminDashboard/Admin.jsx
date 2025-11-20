@@ -506,8 +506,8 @@ const getSectionTitle = (sectionId) => {
     'salary-templates': 'Salary Templates',
     transactions: 'In/Out Transactions',
     reports: 'Reports & Billing',
-    companySettings: 'Company Settings',
-    categorySettings: 'Category Settings'
+    'company-settings': 'Company Settings',
+    'category-settings': 'Category Settings'
   };
   return sections[sectionId] || 'Dashboard';
 };

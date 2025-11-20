@@ -41,6 +41,18 @@ export const salaryTemplateService = {
   updateTemplateStatus: async (id, status) => {
     const response = await api.patch(`/salary-templates/${id}/status`, { status });
     return response.data;
+  },
+
+  // Get designations from categories
+  getEmployeeDesignations: async () => {
+    const response = await api.get('/categories/employee-designation');
+    return response.data;
+  },
+
+  // Or get all categories at once
+  getAllEmployeeCategories: async () => {
+    const response = await api.get('/categories');
+    return response.data;
   }
 };
 

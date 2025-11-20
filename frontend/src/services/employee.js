@@ -37,6 +37,25 @@ export const employeeService = {
       'Content-Type': 'multipart/form-data'
     }
   }),
+
+    // Get categories for employee dropdowns
+  getEmployeeDesignations: async () => {
+    const response = await api.get('/categories/employee-designation');
+    return response.data;
+  },
+
+  getEmployeeDepartments: async () => {
+    // Since you have 'employee-role' type, we'll use that for departments
+    // Or you might want to create a new type 'employee-department'
+    const response = await api.get('/categories/employee-role');
+    return response.data;
+  },
+
+  // Or get all categories at once
+  getAllEmployeeCategories: async () => {
+    const response = await api.get('/categories');
+    return response.data;
+  },
   
   removePhoto: () => api.delete('/upload/photo'),
 };

@@ -20,6 +20,11 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
   const [formAttempts, setFormAttempts] = useState(0);
   const [phoneError, setPhoneError] = useState(''); // NEW: Separate state for phone validation
 
+  // NEW: State for dynamic categories
+  const [designations, setDesignations] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
   const [formData, setFormData] = useState({
     personId: '',
     email: '',
@@ -46,29 +51,29 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     isSkeleton: true
   }));
 
-  // Designation options
-  const designationOptions = [
-    'Senior Developer',
-    'Junior Developer',
-    'Project Manager',
-    'UI/UX Designer',
-    'HR Manager',
-    'Finance Analyst',
-    'Sales Executive'
-  ];
+  // // Designation options
+  // const designationOptions = [
+  //   'Senior Developer',
+  //   'Junior Developer',
+  //   'Project Manager',
+  //   'UI/UX Designer',
+  //   'HR Manager',
+  //   'Finance Analyst',
+  //   'Sales Executive'
+  // ];
 
-  // Department options
-  const departmentOptions = [
-    'Engineering',
-    'Management',
-    'Design',
-    'Sales',
-    'HR',
-    'Finance',
-    'Marketing',
-    'Operations',
-    'IT'
-  ];
+  // // Department options
+  // const departmentOptions = [
+  //   'Engineering',
+  //   'Management',
+  //   'Design',
+  //   'Sales',
+  //   'HR',
+  //   'Finance',
+  //   'Marketing',
+  //   'Operations',
+  //   'IT'
+  // ];
 
   // Load employees on component mount
   const loadEmployees = async () => {
@@ -88,8 +93,41 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     }
   };
 
+  // NEW: Load categories from backend
+  const loadCategories = async () => {
+    setCategoriesLoading(true);
+    try {
+      // Option 1: Load all categories at once
+      const categoriesData = await employeeService.getAllEmployeeCategories();
+      
+      if (categoriesData.success) {
+        setDesignations(categoriesData.data['employee-designation'] || []);
+        setDepartments(categoriesData.data['employee-role'] || []);
+      }
+      } catch (error) {
+      console.error('Error loading categories:', error);
+      setError('Failed to load categories. Using default values.');
+      // Fallback to default values if API fails
+      setDesignations([
+        { name: 'Senior Developer' },
+        { name: 'Junior Developer' },
+        { name: 'Project Manager' },
+        { name: 'UI/UX Designer' }
+      ]);
+      setDepartments([
+        { name: 'Engineering' },
+        { name: 'Management' },
+        { name: 'Design' },
+        { name: 'Sales' }
+      ]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadEmployees();
+    loadCategories(); // Load categories when component mounts
   }, []);
 
   // ID generation function
@@ -285,6 +323,19 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
 
     // Validate phone number
     if (!validatePhoneNumber(formData.phone)) {
+      setLoading(false);
+      return;
+    }
+
+    // Validate that selected designation and department exist in categories
+    if (!designations.some(d => d.name === formData.designation)) {
+      setError('Please select a valid designation from the list');
+      setLoading(false);
+      return;
+    }
+
+    if (!departments.some(d => d.name === formData.department)) {
+      setError('Please select a valid department from the list');
       setLoading(false);
       return;
     }
@@ -700,12 +751,18 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
                     value={formData.designation}
                     onChange={handleInputChange}
                     required
+                    disabled={categoriesLoading}
                   >
-                    <option value="">Select Designation</option>
-                    {designationOptions.map(designation => (
-                      <option key={designation} value={designation}>{designation}</option>
+                    <option value="">{categoriesLoading ? 'Loading designations...' : 'Select Designation'}</option>
+                    {designations.map((category, index) => (
+                      <option key={index} value={category.name}>
+                        {category.name}
+                      </option>
                     ))}
                   </select>
+                  {categoriesLoading && (
+                    <small style={{ color: '#64748b' }}>Loading designations...</small>
+                  )}
                 </div>
                
                 <div className="form-group">
@@ -716,12 +773,18 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
                     value={formData.department}
                     onChange={handleInputChange}
                     required
+                    disabled={categoriesLoading}
                   >
-                    <option value="">Select Department</option>
-                    {departmentOptions.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
+                    <option value="">{categoriesLoading ? 'Loading departments...' : 'Select Department'}</option>
+                    {departments.map((category, index) => (
+                      <option key={index} value={category.name}>
+                        {category.name}
+                      </option>
                     ))}
                   </select>
+                  {categoriesLoading && (
+                    <small style={{ color: '#64748b' }}>Loading departments...</small>
+                  )}
                 </div>
               </div>
 
@@ -825,7 +888,7 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
                 <button
                   type="submit"
                   className="submit-btn"
-                  disabled={loading || (formData.panNumber && !validatePanNumber(formData.panNumber)) || phoneError}
+                  disabled={loading || categoriesLoading || (formData.panNumber && !validatePanNumber(formData.panNumber)) || phoneError}
                 >
                   {loading ? 'Saving...' : (editingEmployee ? 'Update Employee' : 'Add Employee')}
                 </button>
