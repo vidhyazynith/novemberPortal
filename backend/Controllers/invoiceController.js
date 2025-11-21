@@ -432,7 +432,45 @@ export const generateInvoice = async (req, res) => {
         phone: '+1 (555) 123-4567',
         email: 'contact@zynith-it.com',
         taxId: 'TAX-123456789',
+        logo: { url: '' },
+        signature: { url: '' }
       });
+    }
+
+            // Pre-load logo and signature buffers from Cloudinary
+    let logoBuffer = null;
+    let signatureBuffer = null;
+ 
+    try {
+      // Load logo from Cloudinary
+      if (company.logo?.url) {
+        const logoResponse = await axios({
+          method: 'GET',
+          url: company.logo.url,
+          responseType: 'arraybuffer',
+          timeout: 10000
+        });
+        logoBuffer = Buffer.from(logoResponse.data);
+        console.log("✅ Logo loaded from Cloudinary for download");
+      }
+    } catch (logoError) {
+      console.error("❌ Error loading logo from Cloudinary:", logoError.message);
+    }
+ 
+    try {
+      // Load signature from Cloudinary
+      if (company.signature?.url) {
+        const signatureResponse = await axios({
+          method: 'GET',
+          url: company.signature.url,
+          responseType: 'arraybuffer',
+          timeout: 10000
+        });
+        signatureBuffer = Buffer.from(signatureResponse.data);
+        console.log("✅ Signature loaded from Cloudinary for download");
+      }
+    } catch (signatureError) {
+      console.error("❌ Error loading signature from Cloudinary:", signatureError.message);
     }
 
     // Calculate totals with new logic
@@ -503,16 +541,16 @@ export const generateInvoice = async (req, res) => {
       const logoHeight = 100;
       const logoX = pageWidth - logoWidth + 15;
      
-      try {
-        const logoPath = join(__dirname, 'logo.png');
-        if (fs.existsSync(logoPath)) {
-          doc.image(logoPath, logoX, 20, {
+      if (logoBuffer) {
+        try {
+          doc.image(logoBuffer, logoX, 20, {
             width: logoWidth,
             height: logoHeight
           });
+          console.log("✅ Company logo added to PDF");
+        } catch (logoError) {
+          console.error("❌ Error adding logo to PDF:", logoError.message);
         }
-      } catch (logoError) {
-        console.error("❌ Error loading logo:", logoError);
       }
 
       // ===== COMPANY INFO =====
@@ -792,11 +830,26 @@ export const generateInvoice = async (req, res) => {
     });
 
     // ===== SIGNATURE SECTION =====
+
     const signatureY = 680;
     const signatureX = pageWidth - 125;
+    const signatureWidth = 100;
+    const signatureHeight = 50;
+    // Add signature from Cloudinary if available
+    if (signatureBuffer) {
+      try {
+        doc.image(signatureBuffer, signatureX - 20, signatureY - 55, {
+          width: signatureWidth,
+          height: signatureHeight
+        });
+        console.log("✅ Signature added to PDF");
+      } catch (signatureError) {
+        console.error("❌ Error adding signature to PDF:", signatureError.message);
+      }
+    }
    
-    doc.fontSize(11).font('Helvetica')
-       .text('For Zynith IT Solutions', signatureX - 40, signatureY + 5, {
+    doc.fontSize(10).font('Helvetica')
+       .text(`For ${company.companyName}`, signatureX - 40, signatureY + 5, {
          width: 150,
          align: 'center'
        });
@@ -839,7 +892,44 @@ export const downloadInvoice = async (req, res) => {
         phone: '+1 (555) 123-4567',
         email: 'contact@zynith-it.com',
         taxId: 'TAX-123456789',
+        logo: { url: '' },
+        signature: { url: '' }
       };
+    }
+ 
+    let logoBuffer = null;
+    let signatureBuffer = null;
+ 
+    try {
+      // Load logo from Cloudinary
+      if (company.logo?.url) {
+        const logoResponse = await axios({
+          method: 'GET',
+          url: company.logo.url,
+          responseType: 'arraybuffer',
+          timeout: 10000
+        });
+        logoBuffer = Buffer.from(logoResponse.data);
+        console.log("✅ Logo loaded from Cloudinary for download");
+      }
+    } catch (logoError) {
+      console.error("❌ Error loading logo from Cloudinary:", logoError.message);
+    }
+ 
+    try {
+      // Load signature from Cloudinary
+      if (company.signature?.url) {
+        const signatureResponse = await axios({
+          method: 'GET',
+          url: company.signature.url,
+          responseType: 'arraybuffer',
+          timeout: 10000
+        });
+        signatureBuffer = Buffer.from(signatureResponse.data);
+        console.log("✅ Signature loaded from Cloudinary for download");
+      }
+    } catch (signatureError) {
+      console.error("❌ Error loading signature from Cloudinary:", signatureError.message);
     }
 
     // PDF setup - stream directly to response
@@ -876,16 +966,16 @@ export const downloadInvoice = async (req, res) => {
       const logoHeight = 100;
       const logoX = pageWidth - logoWidth + 15;
      
-      try {
-        const logoPath = join(__dirname, 'logo.png');
-        if (fs.existsSync(logoPath)) {
-          doc.image(logoPath, logoX, 20, {
+      if (logoBuffer) {
+        try {
+          doc.image(logoBuffer, logoX, 20, {
             width: logoWidth,
             height: logoHeight
           });
+          console.log("✅ Company logo added to PDF");
+        } catch (logoError) {
+          console.error("❌ Error adding logo to PDF:", logoError.message);
         }
-      } catch (logoError) {
-        console.error("❌ Error loading logo:", logoError);
       }
 
       // ===== COMPANY INFO =====

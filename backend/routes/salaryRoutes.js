@@ -486,13 +486,13 @@ router.get('/payslip/:id/download', authenticateToken, async (req, res) => {
    
     doc.pipe(res);
    
-    // PDF content
-    const logoUrl = "https://res.cloudinary.com/dmeixikaj/image/upload/v1762321093/logo_nrmc3t.png";
-    const logoResponse = await axios.get(logoUrl, { responseType: 'arraybuffer' });
-    const logoBuffer = Buffer.from(logoResponse.data, "utf-8");
+    // // PDF content
+    // const logoUrl = "https://res.cloudinary.com/dmeixikaj/image/upload/v1762321093/logo_nrmc3t.png";
+    // const logoResponse = await axios.get(logoUrl, { responseType: 'arraybuffer' });
+    // const logoBuffer = Buffer.from(logoResponse.data, "utf-8");
  
-    // ✅ Add logo from buffer
-    doc.image(logoBuffer, 50, 40, { width: 50 });
+    // // ✅ Add logo from buffer
+    // doc.image(logoBuffer, 50, 40, { width: 50 });
     doc.fontSize(18).fillColor("#000").text("Zynith IT Solutions", 100, 45);
     doc.fontSize(10).fillColor("gray").text("Chennai, India", 100, 65);
     doc.fontSize(15).fillColor("gray").text("Payslip For the Month", 350, 47);
