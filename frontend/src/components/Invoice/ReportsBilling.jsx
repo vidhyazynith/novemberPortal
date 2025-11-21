@@ -18,7 +18,7 @@ const ReportsBilling = () => {
   const [invoices, setInvoices] = useState([]);
   const [disabledInvoices, setDisabledInvoices] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [items, setItems] = useState([defaultInvoiceItem]);
+  const [items, setItems] = useState([{ ...defaultInvoiceItem }]);
   const [invoiceDate, setInvoiceDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [taxPercent, setTaxPercent] = useState(0);
@@ -28,19 +28,20 @@ const ReportsBilling = () => {
   const [currency, setCurrency] = useState('USD');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false); // NEW: Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [editingInvoice, setEditingInvoice] = useState(null); // NEW: Invoice being edited
+  const [editingInvoice, setEditingInvoice] = useState(null);
   const [transactionNumber, setTransactionNumber] = useState('');
   const [transactionProof, setTransactionProof] = useState(null);
-  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'disabled'
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [sentEmails, setSentEmails] = useState(new Set());
- 
+  const [activeTab, setActiveTab] = useState('active');
+
   // New states for Profit & Loss report
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
+
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sentEmails, setSentEmails] = useState(new Set());
 
   // Load customers and invoices
   useEffect(() => {
@@ -147,7 +148,9 @@ const ReportsBilling = () => {
     setItems(invoice.items.map(item => ({
       description: item.description,
       remarks: item.remarks || "",
-      amount: item.amount.toString()
+      unitPrice: item.unitPrice ? item.unitPrice.toString() : "", // NEW
+      quantity: item.quantity ? item.quantity.toString() : "", // NEW
+      amount: item.amount ? item.amount.toString() : "" // Auto-calculated
     })));
     setInvoiceDate(new Date(invoice.date).toISOString().split('T')[0]);
     setDueDate(invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : '');
@@ -165,14 +168,17 @@ const ReportsBilling = () => {
       return;
     }
 
-    // if (!dueDate) {
-    //   alert("Please select a due date.");
-    //   return;
-    // }
-
-    const invalidItems = items.some((item) => !item.description.trim() || !item.amount || item.amount <= 0);
+    // Validate items with new fields
+    const invalidItems = items.some((item) => 
+      !item.description.trim() || 
+      !item.unitPrice || 
+      item.unitPrice <= 0 || 
+      !item.quantity || 
+      item.quantity <= 0
+    );
+    
     if (invalidItems) {
-      alert("Please enter valid item descriptions and amounts.");
+      alert("Please enter valid item descriptions, unit prices, and quantities.");
       return;
     }
 
@@ -183,9 +189,10 @@ const ReportsBilling = () => {
         items: items.map((item) => ({
           description: item.description,
           remarks: item.remarks,
-          amount: Number(item.amount),
+          unitPrice: Number(item.unitPrice), // NEW
+          quantity: Number(item.quantity), // NEW
+          // amount is auto-calculated in backend
         })),
-        totalAmount: totals.total,
         invoiceDate,
         dueDate,
         taxPercent: Number(taxPercent),
@@ -215,7 +222,7 @@ const ReportsBilling = () => {
   const closeEditModal = () => {
     setShowEditModal(false);
     setEditingInvoice(null);
-    setItems([defaultInvoiceItem]);
+    setItems([{ ...defaultInvoiceItem }]);
     setSelectedCustomer('');
     setNotes("");
     setTaxPercent(0);
@@ -326,6 +333,15 @@ const ReportsBilling = () => {
           : inv
       ));
 
+      // Refresh transactions to show the new automatic entry
+      try {
+        const { transactionService } = await import('../../services/transactions');
+        await transactionService.getTransactions({});
+        console.log('✅ Transactions refreshed after invoice verification');
+      } catch (refreshError) {
+        console.log('ℹ️ Transaction refresh not available in this context');
+      }
+
       alert('Payment verified successfully!');
       closePaymentModal();
     } catch (error) {
@@ -336,11 +352,11 @@ const ReportsBilling = () => {
     }
   };
 
-  // Add / Remove / Edit items
+  // Add / Remove / Edit items with auto-calculation
   const handleAddItem = () => {
-   const newItem = { ...defaultInvoiceItem };
-  setItems([...items, newItem]);
-  setShowItemsTable(true);
+    const newItem = { ...defaultInvoiceItem };
+    setItems([...items, newItem]);
+    setShowItemsTable(true);
   };
 
   const handleRemoveItem = (index) => {
@@ -351,13 +367,22 @@ const ReportsBilling = () => {
     }
   };
 
+  // UPDATED: Handle item changes with auto-calculation
   const handleItemChange = (index, field, value) => {
-  const newItems = [...items];
-  newItems[index] = { ...newItems[index], [field]: value }; // ensure immutability
-  setItems(newItems);
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], [field]: value };
+
+    // Auto-calculate amount when unitPrice or quantity changes
+    if (field === 'unitPrice' || field === 'quantity') {
+      const unitPrice = parseFloat(newItems[index].unitPrice) || 0;
+      const quantity = parseFloat(newItems[index].quantity) || 0;
+      newItems[index].amount = (unitPrice * quantity).toFixed(2);
+    }
+
+    setItems(newItems);
   };
 
-  // Total calculation using service function
+  // UPDATED: Total calculation using service function with new fields
   const totals = calculateInvoiceTotals(items, taxPercent, currency);
 
   // Open invoice modal
@@ -368,7 +393,7 @@ const ReportsBilling = () => {
   // Close invoice modal and reset form
   const closeInvoiceModal = () => {
     setShowInvoiceModal(false);
-    setItems([defaultInvoiceItem]);
+    setItems([{ ...defaultInvoiceItem }]);
     setSelectedCustomer('');
     setNotes("");
     setTaxPercent(0);
@@ -376,21 +401,24 @@ const ReportsBilling = () => {
     setShowItemsTable(false);
   };
 
-  // Invoice generation
+  // UPDATED: Invoice generation with new fields
   const handleGenerateInvoice = async () => {
     if (!selectedCustomer) {
       alert("Please select a customer.");
       return;
     }
 
-    // if (!dueDate) {
-    //   alert("Please select a due date.");
-    //   return;
-    // }
-
-    const invalidItems = items.some((item) => !item.description.trim() || !item.amount || item.amount <= 0);
+    // Validate items with new fields
+    const invalidItems = items.some((item) => 
+      !item.description.trim() || 
+      !item.unitPrice || 
+      item.unitPrice <= 0 || 
+      !item.quantity || 
+      item.quantity <= 0
+    );
+    
     if (invalidItems) {
-      alert("Please enter valid item descriptions and amounts.");
+      alert("Please enter valid item descriptions, unit prices, and quantities.");
       return;
     }
 
@@ -401,9 +429,10 @@ const ReportsBilling = () => {
         items: items.map((item) => ({
           description: item.description,
           remarks: item.remarks,
-          amount: Number(item.amount),
+          unitPrice: Number(item.unitPrice), // NEW
+          quantity: Number(item.quantity), // NEW
+          // amount is auto-calculated in backend
         })),
-        totalAmount: totals.total,
         invoiceDate,
         dueDate,
         taxPercent: Number(taxPercent),
@@ -449,7 +478,6 @@ const ReportsBilling = () => {
     return disabledInvoices.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
-  //Open outlook
   // NEW: Handle sending email with tick mark
   const handleSendEmail = async (invoice) => {
     // Get customer email from invoice data
@@ -540,20 +568,10 @@ const ReportsBilling = () => {
 
   return (
     <div className="reports-billing-container">
-      {/* Header Section */}
-      {/* <div className="reports-header">
-        <div className="header-content">
-          <div className="header-text">
-          </div>
-        </div>
-      </div> */}
-     
       {/* Main Content Grid */}
       <div className="main-content-grid">
         {/* Top Section with Profit & Loss */}
           <div className="profit-loss-section">
-            {/* <div className="report-card"> */}
-             
               <div className="form-section">
                 <div className="card-header">
                 <h3>Profit & Loss Report</h3>
@@ -587,10 +605,8 @@ const ReportsBilling = () => {
                   </button>
                 </div>
               </div>
-            {/* </div> */}
           </div>
      
-
         {/* Invoice History / Disabled Invoices */}
         <div className="report-card invoice-history-card">
           <div className="card-header responsive-header">
@@ -653,7 +669,6 @@ const ReportsBilling = () => {
                         </td>
                         <td className="invoice-actions" data-label="Actions">
                           <div className="inv-action-buttons responsive-actions">
-                            {/* NEW: Edit Button */}
                             {/* Send Email Button with Tick Mark */}
                             <button
                               className={`inv-action-btn send ${sentEmails.has(invoice._id) ? 'sent' : ''}`}
@@ -680,21 +695,24 @@ const ReportsBilling = () => {
                               )}
                             </button>
                             
-                            <button
-                              className="inv-action-btn edit"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditInvoice(invoice);
-                              }}
-                              title="Edit Invoice"
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                {/* Edit Button with better status checking */}
+                                <button
+                                  className={`inv-action-btn edit ${invoice.status === 'PAID' || invoice.status === 'paid' ? 'disabled' : ''}`}
+                                  onClick={(e) => {
+                                    if (invoice.status !== 'PAID' && invoice.status !== 'paid') {
+                                      e.stopPropagation();
+                                      handleEditInvoice(invoice);
+                                    }
+                                  }}
+                                  title={invoice.status === 'PAID' || invoice.status === 'paid' ? 'Cannot edit paid invoices' : 'Edit Invoice'}
+                                  disabled={invoice.status === 'PAID' || invoice.status === 'paid'}
+                                >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                              </svg>
-                            </button>
-
-                            <button
+                                </svg>
+                                </button>
+                                                            <button
                               className="inv-action-btn download"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -710,7 +728,7 @@ const ReportsBilling = () => {
                             </button>
                            
                             {/* View Payment Proof Button - Only for paid invoices with proof */}
-                            {invoice.status === 'paid' && invoice.paymentDetails?.proofFile && (
+                            {invoice.status === 'PAID' && invoice.paymentDetails?.proofFile && (
                             <button
                               className="inv-action-btn view-proof"
                               onClick={(e) => {
@@ -883,7 +901,6 @@ const ReportsBilling = () => {
                         className="form-input"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
-                        //required
                       />
                     </div>
                   </div>
@@ -917,7 +934,7 @@ const ReportsBilling = () => {
                     />
                   </div>
                  
-                  {/* Items Section */}
+                  {/* UPDATED: Items Section with new fields */}
                   <div className="invoice-items-section">
                     <div className="section-header">
                       <label className="required">Invoice Items</label>
@@ -933,6 +950,8 @@ const ReportsBilling = () => {
                             <tr>
                               <th className="column-description">Description</th>
                               <th className="column-remarks">Remarks</th>
+                              <th className="column-unit-price">Unit Price ({currencySymbols[currency]})</th>
+                              <th className="column-quantity">Quantity</th>
                               <th className="column-amount">Amount ({currencySymbols[currency]})</th>
                               <th className="column-action">Action</th>
                             </tr>
@@ -959,16 +978,36 @@ const ReportsBilling = () => {
                                     className="table-input remarks-input"
                                   />
                                 </td>
-                                <td data-label={`Amount (${currencySymbols[currency]})`}>
+                                <td data-label={`Unit Price (${currencySymbols[currency]})`}>
                                   <input
                                     type="number"
-                                    placeholder="Amount"
-                                    value={item.amount}
-                                    onChange={(e) => handleItemChange(index, "amount", e.target.value)}
+                                    placeholder="0.00"
+                                    value={item.unitPrice}
+                                    onChange={(e) => handleItemChange(index, "unitPrice", e.target.value)}
                                     className="table-input"
                                     min="0"
                                     step="0.01"
                                     required
+                                  />
+                                </td>
+                                <td data-label="Quantity">
+                                  <input
+                                    type="number"
+                                    placeholder="0"
+                                    value={item.quantity}
+                                    onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
+                                    className="table-input"
+                                    min="0"
+                                    step="1"
+                                    required
+                                  />
+                                </td>
+                                <td data-label={`Amount (${currencySymbols[currency]})`}>
+                                  <input
+                                    type="text"
+                                    value={item.amount || '0.00'}
+                                    className="table-input amount-input"
+                                    readOnly
                                   />
                                 </td>
                                 <td data-label="Action">
@@ -1035,7 +1074,7 @@ const ReportsBilling = () => {
         </div>
       )}
 
-      {/* NEW: Edit Invoice Modal */}
+      {/* Edit Invoice Modal */}
       {showEditModal && editingInvoice && (
         <div className="modal-overlay" onClick={closeEditModal}>
           <div className="modal-content responsive-modal" onClick={(e) => e.stopPropagation()}>
@@ -1089,7 +1128,6 @@ const ReportsBilling = () => {
                         className="form-input"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
-                        // required
                       />
                     </div>
                   </div>
@@ -1123,7 +1161,7 @@ const ReportsBilling = () => {
                     />
                   </div>
                  
-                  {/* Items Section */}
+                  {/* UPDATED: Items Section with new fields */}
                   <div className="invoice-items-section">
                     <div className="section-header">
                       <label className="required">Invoice Items</label>
@@ -1139,6 +1177,8 @@ const ReportsBilling = () => {
                             <tr>
                               <th className="column-description">Description</th>
                               <th className="column-remarks">Remarks</th>
+                              <th className="column-unit-price">Unit Price ({currencySymbols[currency]})</th>
+                              <th className="column-quantity">Quantity</th>
                               <th className="column-amount">Amount ({currencySymbols[currency]})</th>
                               <th className="column-action">Action</th>
                             </tr>
@@ -1165,16 +1205,36 @@ const ReportsBilling = () => {
                                     className="table-input remarks-input"
                                   />
                                 </td>
-                                <td data-label={`Amount (${currencySymbols[currency]})`}>
+                                <td data-label={`Unit Price (${currencySymbols[currency]})`}>
                                   <input
                                     type="number"
-                                    placeholder="Amount"
-                                    value={item.amount}
-                                    onChange={(e) => handleItemChange(index, "amount", e.target.value)}
+                                    placeholder="0.00"
+                                    value={item.unitPrice}
+                                    onChange={(e) => handleItemChange(index, "unitPrice", e.target.value)}
                                     className="table-input"
                                     min="0"
                                     step="0.01"
                                     required
+                                  />
+                                </td>
+                                <td data-label="Quantity">
+                                  <input
+                                    type="number"
+                                    placeholder="0"
+                                    value={item.quantity}
+                                    onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
+                                    className="table-input"
+                                    min="0"
+                                    step="1"
+                                    required
+                                  />
+                                </td>
+                                <td data-label={`Amount (${currencySymbols[currency]})`}>
+                                  <input
+                                    type="text"
+                                    value={item.amount || '0.00'}
+                                    className="table-input amount-input"
+                                    readOnly
                                   />
                                 </td>
                                 <td data-label="Action">

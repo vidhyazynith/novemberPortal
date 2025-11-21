@@ -2,8 +2,7 @@ import Transaction from '../models/Transaction.js';
 import ExcelJS from 'exceljs'; 
 
 //download transaction as excel
-export const downloadExcel = 
-    async (req, res) => {
+export const downloadExcel = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
    
@@ -412,8 +411,39 @@ export const addTransaction = async (req, res) => {
   try {
     const { description, amount, type, category, remarks } = req.body;
 
+     // Validate required fields
+    if (!description || !amount || !type || !category) {
+      return res.status(400).json({ 
+        message: 'Description, amount, type, and category are required' 
+      });
+    }
+
     let attachment = null;
-    if (req.file) {
+     if (req.file) {
+      // Validate file type
+      const allowedMimeTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ];
+     
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({
+          message: "Invalid file type. Supported formats: PDF, JPG, PNG, DOC, DOCX, XLSX"
+        });
+      }
+
+      // Validate file size (5MB max)
+      if (req.file.size > 5 * 1024 * 1024) {
+        return res.status(400).json({
+          message: "File size too large. Maximum size is 5MB."
+        });
+      }
+
       attachment = {
         filename: req.file.originalname,
         originalName: req.file.originalname,
@@ -429,8 +459,9 @@ export const addTransaction = async (req, res) => {
       type,
       category,
       remarks: remarks || '',
+      date: new Date(),
       attachment,
-      createdBy: req.user.id
+      createdBy: req.user?.id || "system"
     });
 
     await transaction.save();
@@ -456,7 +487,12 @@ export const filterTransaction =  async (req, res) => {
   try {
     const { type, category, search, page = 1, limit = 10 } = req.query;
     
-    const filter = { createdBy: req.user.id };
+    const filter = {
+      $or: [
+        { createdBy: req.user?.id },
+        { createdBy: "system" }
+      ]
+    };
     
     if (type) filter.type = type;
     if (category) filter.category = category;
@@ -507,7 +543,10 @@ export const getSingleTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOne({
       _id: req.params.id,
-      createdBy: req.user.id
+      $or: [
+        { createdBy: req.user?.id },
+        { createdBy: "system" }
+      ]
     });
 
     if (!transaction) {
@@ -526,7 +565,10 @@ export const downloadAttachment = async (req, res) => {
   try {
     const transaction = await Transaction.findOne({
       _id: req.params.id,
-      createdBy: req.user.id
+       $or: [
+        { createdBy: req.user?.id },
+        { createdBy: "system" }
+      ]
     });
 
     if (!transaction || !transaction.attachment) {
@@ -549,7 +591,8 @@ export const downloadAttachment = async (req, res) => {
 export const updateTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOneAndUpdate(
-      { _id: req.params.id, createdBy: req.user.id },
+      { _id: req.params.id, 
+        createdBy: req.user.id },
       req.body,
       { new: true, runValidators: true }
     );
@@ -576,11 +619,14 @@ export const deleteTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOneAndDelete({
       _id: req.params.id,
-      createdBy: req.user.id
+      $or: [
+        { createdBy: req.user?.id },
+        { createdBy: "system" }
+      ]
     });
 
     if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
+      return res.status(404).json({ message: 'Transaction not found or you do not have permission to delete this transaction' });
     }
 
     res.json({ message: 'Transaction deleted successfully' });
@@ -595,7 +641,12 @@ export const deleteTransaction = async (req, res) => {
 export const getTransactionStats =  async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const filter = { createdBy: req.user.id };
+    const filter = { 
+      $or: [
+        { createdBy: req.user?.id },
+        { createdBy: "system" }
+      ]
+    }; 
 
     if (startDate && endDate) {
       filter.date = {
@@ -626,5 +677,58 @@ export const getTransactionStats =  async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Get all transactions (for the merged controller compatibility)
+export const getTransactions = async (req, res) => {
+  try {
+    const { type, category, search } = req.query;
+    
+    // Build filter object
+    const filters = {
+      $or: [
+        { createdBy: req.user?.id },
+        { createdBy: "system" }
+      ]
+    };
+    
+    if (type) filters.type = type;
+    if (category) filters.category = category;
+    if (search) {
+      filters.$or = [
+        { description: { $regex: search, $options: 'i' } },
+        { remarks: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const transactions = await Transaction.find(filters)
+      .sort({ date: -1, createdAt: -1 });
+
+    // Calculate totals
+    const totals = {
+      income: 0,
+      expenses: 0,
+      net: 0
+    };
+
+    transactions.forEach(transaction => {
+      if (transaction.type === 'Income') {
+        totals.income += transaction.amount;
+      } else if (transaction.type === 'Expense') {
+        totals.expenses += transaction.amount;
+      }
+    });
+
+    totals.net = totals.income - totals.expenses;
+
+    res.json({
+      transactions,
+      totals
+    });
+
+  } catch (error) {
+    console.error("Error fetching transactions:", error);
+    res.status(500).json({ message: "Error fetching transactions", error: error.message });
   }
 };

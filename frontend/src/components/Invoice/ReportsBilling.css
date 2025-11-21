@@ -1,4 +1,3 @@
-/* Reset and Base Styles */
 .reports-billing-container {
   min-height: 100vh;
   background: #f8f9fa;
@@ -915,4 +914,171 @@
 
 body {
   overflow-x: hidden;
+}
+
+/* Add these new styles to your existing ReportsBilling.css */
+
+/* New column styles for invoice items table */
+.column-description {
+  width: 140px; /* Reduced from 180px */
+  min-width: 120px;
+}
+
+.column-remarks {
+  width: 120px; /* Reduced from 150px */
+  min-width: 100px;
+}
+
+.column-unit-price {
+  width: 120px;
+  min-width: 100px;
+}
+
+.column-quantity {
+  width: 80px; /* Reduced width for quantity */
+  min-width: 70px;
+}
+
+.column-amount {
+  width: 120px;
+  min-width: 100px;
+}
+
+/* Make the table responsive for new columns */
+.invoice-items-table table {
+  min-width: 700px; /* Reduced from 800px since we made columns smaller */
+}
+
+/* Style for read-only amount field */
+.amount-input {
+  background-color: #f8f9fa;
+  color: #666;
+  cursor: not-allowed;
+  border-color: #e9ecef;
+}
+
+/* Adjust column widths for the new layout - THIS IS THE KEY FIX */
+.invoice-items-table th:nth-child(1),
+.invoice-items-table td:nth-child(1) {
+  width: 140px; /* Description - REDUCED */
+  min-width: 120px;
+}
+
+.invoice-items-table th:nth-child(2),
+.invoice-items-table td:nth-child(2) {
+  width: 120px; /* Remarks - REDUCED */
+  min-width: 100px;
+}
+
+.invoice-items-table th:nth-child(3),
+.invoice-items-table td:nth-child(3) {
+  width: 120px; /* Unit Price */
+  min-width: 100px;
+}
+
+.invoice-items-table th:nth-child(4),
+.invoice-items-table td:nth-child(4) {
+  width: 80px; /* Quantity - REDUCED */
+  min-width: 70px;
+}
+
+.invoice-items-table th:nth-child(5),
+.invoice-items-table td:nth-child(5) {
+  width: 120px; /* Amount */
+  min-width: 100px;
+}
+
+.invoice-items-table th:nth-child(6),
+.invoice-items-table td:nth-child(6) {
+  width: 100px; /* Action */
+  min-width: 80px;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .invoice-items-table table {
+    min-width: 750px; /* Reduced for mobile */
+  }
+  
+  .invoice-items-table th,
+  .invoice-items-table td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  
+  .table-input {
+    font-size: 12px;
+    padding: 6px;
+  }
+}
+
+/* Ensure proper alignment for number inputs */
+.table-input[type="number"] {
+  text-align: right;
+}
+
+.amount-input {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* Highlight the auto-calculated amount */
+.amount-input:focus {
+  outline: none;
+  background-color: #f8f9fa;
+}
+/* Disabled button styles */
+.inv-action-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f5f5f5;
+}
+
+.inv-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f5f5f5;
+}
+
+/* Optional: Change cursor and color for disabled state */
+.inv-action-btn.disabled svg {
+  color: #999;
+}
+
+/* Disabled button styles - More specific */
+.inv-action-btn:disabled,
+.inv-action-btn.disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background-color: #f5f5f5 !important;
+  border-color: #ddd !important;
+  color: #999 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+ 
+/* Specifically target the edit button when disabled */
+button.inv-action-btn.edit:disabled,
+button.inv-action-btn.edit.disabled {
+  background: #f5f5f5 !important;
+  color: #999 !important;
+  border: 1px solid #ddd !important;
+}
+ 
+/* Remove any hover effects for disabled buttons */
+.inv-action-btn:disabled:hover,
+.inv-action-btn.disabled:hover {
+  background: #f5f5f5 !important;
+  color: #999 !important;
+  border: 1px solid #ddd !important;
+  transform: none !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+ 
+/* Ensure the SVG icon also gets the disabled color */
+.inv-action-btn:disabled svg,
+.inv-action-btn.disabled svg {
+  stroke: #999 !important;
 }

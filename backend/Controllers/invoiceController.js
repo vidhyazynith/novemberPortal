@@ -4,22 +4,23 @@ import path from "path";
 import Customer from '../models/Customer.js';
 import Invoice from '../models/Invoice.js'
 import Company from '../models/Company.js';
+import Transaction from '../models/Transaction.js';
 import pkg from "number-to-words";
- 
+
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 const { toWords } = pkg;
- 
+
 // Properly define __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
- 
+
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../uploads/payment-proofs');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
- 
+
 // Generate dynamic Invoice PDF - FIXED CURRENCY FOR INR
 const getCurrencySymbol = (currency) => {
   const currencySymbols = {
@@ -29,17 +30,17 @@ const getCurrencySymbol = (currency) => {
   };
   return currencySymbols[currency] || '$';
 };
- 
+
 // Fixed amount in words function for INR
-    const getAmountInWords = (amount, currency) => {
+const getAmountInWords = (amount, currency) => {
   try {
     const amountInWords = toWords(Math.round(amount));
- 
+
     // Convert to Title Case (Camel-style words)
     const camelCaseWords = amountInWords.replace(/\w\S*/g,
       txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
     );
- 
+
     // Handle different currency names
     if (currency === 'INR') {
       return `${camelCaseWords} Rupees Only`;
@@ -48,10 +49,10 @@ const getCurrencySymbol = (currency) => {
     } else {
       return `${camelCaseWords} Dollars Only`;
     }
- 
+
   } catch (error) {
     console.error("Error converting amount to words:", error);
- 
+
     if (currency === 'INR') {
       return `${amount} Rupees Only`;
     } else if (currency === 'EUR') {
@@ -61,7 +62,7 @@ const getCurrencySymbol = (currency) => {
     }
   }
 };
- 
+
 // Format currency amount based on currency type
 const formatCurrencyAmount = (amount, currency) => {
   if (currency === 'INR') {
@@ -75,125 +76,175 @@ const formatCurrencyAmount = (amount, currency) => {
     return amount.toFixed(2);
   }
 };
- 
-// Enhanced function to handle payment verification with file upload and storage
-export const verifyPayment = async (req, res) => {
+// NEW FUNCTION: Create transaction when invoice is paid
+const createTransactionForPaidInvoice = async (invoice, transactionNumber) => {
   try {
-    const { invoiceId, transactionNumber } = req.body;
-    const transactionProof = req.file; // Get uploaded file
-   
-    // Validate required fields
-    if (!invoiceId || !transactionNumber) {
-      return res.status(400).json({ message: "Invoice ID and transaction number are required" });
-    }
- 
-    if (!transactionProof) {
-      return res.status(400).json({ message: "Transaction proof file is required" });
-    }
- 
-    // Validate file type
-    const allowedMimeTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-   
-    if (!allowedMimeTypes.includes(transactionProof.mimetype)) {
-      return res.status(400).json({
-        message: "Invalid file type. Supported formats: PDF, JPG, PNG, DOC"
+    console.log('🔄 Creating transaction for paid invoice:', invoice.invoiceNumber);
+    
+    // Prepare attachment data
+    let attachment = null;
+    if (invoice.paymentDetails?.proofFile) {
+      const proofFile = invoice.paymentDetails.proofFile;
+      
+      console.log('📁 Payment proof file found:', {
+        fileName: proofFile.fileName,
+        filePath: proofFile.filePath,
+        fileUrl: proofFile.fileUrl,
+        size: proofFile.size
       });
-    }
- 
-    // Validate file size (10MB max)
-    if (transactionProof.size > 10 * 1024 * 1024) {
-      return res.status(400).json({
-        message: "File size too large. Maximum size is 10MB."
-      });
-    }
- 
-    // Generate unique filename
-    const fileExtension = path.extname(transactionProof.originalname);
-    const uniqueFileName = `payment-proof-${invoiceId}-${Date.now()}${fileExtension}`;
-    const filePath = path.join(uploadsDir, uniqueFileName);
- 
-    // Save file to server
-    fs.writeFileSync(filePath, transactionProof.buffer);
- 
-    // Construct file URL
-    const fileUrl = `/api/billing/payment-proofs/${uniqueFileName}`;
- 
-    // Find and update invoice status with file details
-    const updatedInvoice = await Invoice.findByIdAndUpdate(
-      invoiceId,
-      {
-        status: "paid",
-        $set: {
-          "paymentDetails.transactionNumber": transactionNumber,
-          "paymentDetails.verifiedAt": new Date(),
-          "paymentDetails.proofFile": {
-            originalName: transactionProof.originalname,
-            mimeType: transactionProof.mimetype,
-            size: transactionProof.size,
-            uploadedAt: new Date(),
-            fileName: uniqueFileName,
-            filePath: filePath,
-            fileUrl: fileUrl
-          }
+      
+      try {
+        // Read the payment proof file from disk
+        if (fs.existsSync(proofFile.filePath)) {
+          const fileBuffer = fs.readFileSync(proofFile.filePath);
+          
+          console.log('✅ File read successfully, size:', fileBuffer.length, 'bytes');
+          
+          attachment = {
+            filename: proofFile.fileName,
+            originalName: proofFile.originalName,
+            mimeType: proofFile.mimeType,
+            size: proofFile.size,
+            data: fileBuffer,
+            fileUrl: proofFile.fileUrl // Store the URL for direct access
+          };
+          
+          console.log(`📎 Payment proof file attached: ${proofFile.originalName}`);
+        } else {
+          console.log('❌ File does not exist at path:', proofFile.filePath);
+          // Create attachment with URL only
+          attachment = {
+            filename: proofFile.fileName,
+            originalName: proofFile.originalName,
+            mimeType: proofFile.mimeType,
+            size: proofFile.size,
+            data: null,
+            fileUrl: proofFile.fileUrl
+          };
         }
-      },
-      { new: true, runValidators: true }
-    ).populate("customerId");
- 
-    if (!updatedInvoice) {
-      // Clean up uploaded file if invoice not found
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      } catch (fileError) {
+        console.error('❌ Error reading file:', fileError);
+        // Create attachment with URL only as fallback
+        attachment = {
+          filename: proofFile.fileName,
+          originalName: proofFile.originalName,
+          mimeType: proofFile.mimeType,
+          size: proofFile.size,
+          data: null,
+          fileUrl: proofFile.fileUrl
+        };
       }
-      return res.status(404).json({ message: "Invoice not found" });
+    } else {
+      console.log('❌ No payment proof file found in invoice');
     }
- 
-    res.json({
-      message: "Payment verified successfully",
-      invoice: updatedInvoice
+
+    const transactionData = {
+      description: `${invoice.invoiceNumber}`,
+      amount: invoice.totalAmount,
+      type: 'Income',
+      category: 'Project Revenue',
+      remarks: `Transaction ID: ${transactionNumber}`,
+      date: new Date(),
+      createdBy: 'system'
+    };
+
+    // Only add attachment if it exists
+    if (attachment) {
+      transactionData.attachment = attachment;
+    }
+
+    const transaction = new Transaction(transactionData);
+    await transaction.save();
+    
+    console.log(`✅ Transaction created successfully: ${transaction._id}`);
+    console.log(`📊 Transaction details:`, {
+      description: transaction.description,
+      amount: transaction.amount,
+      hasAttachment: !!transaction.attachment,
+      attachmentSize: transaction.attachment?.data?.length || 0
     });
- 
+    
+    return transaction;
   } catch (error) {
-    console.error("Error verifying payment:", error);
-    res.status(500).json({ message: "Error verifying payment", error: error.message });
+    console.error("❌ Error creating transaction for paid invoice:", error);
+    throw error;
   }
 };
- 
-// Update existing invoice
+
 export const updateInvoice = async (req, res) => {
   try {
     const { id } = req.params;
     const { customerId, items, invoiceDate, dueDate, taxPercent, notes, currency } = req.body;
- 
+
     console.log('🔄 Updating invoice:', id);
     console.log('📦 Update data:', { customerId, items, invoiceDate, dueDate, taxPercent, notes, currency });
- 
+
+    // ✅ ENHANCED CHECK: FIND INVOICE WITH PAYMENT DETAILS
+    const existingInvoice = await Invoice.findById(id).populate("customerId");
+    if (!existingInvoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    console.log('📋 Existing invoice status:', {
+      status: existingInvoice.status,
+      paymentDetails: existingInvoice.paymentDetails,
+      isPaid: existingInvoice.status === "paid"
+    });
+
+    // ✅ STRICT CHECK FOR PAID INVOICES - PREVENT EDITING
+    if (existingInvoice.status === "paid") {
+      console.log('❌ Attempted to edit paid invoice:', existingInvoice.invoiceNumber);
+      return res.status(400).json({ 
+        message: "Cannot edit invoice that has been paid. Edit functionality is disabled for paid invoices.",
+        invoiceNumber: existingInvoice.invoiceNumber,
+        status: existingInvoice.status
+      });
+    }
+
+    // ✅ ADDITIONAL CHECK: If paymentDetails exist, consider it paid
+    if (existingInvoice.paymentDetails && existingInvoice.paymentDetails.transactionNumber) {
+      console.log('❌ Invoice has payment details, marking as non-editable');
+      return res.status(400).json({ 
+        message: "Cannot edit invoice that has payment verification. Edit functionality is disabled.",
+        invoiceNumber: existingInvoice.invoiceNumber
+      });
+    }
+
     // Validate required fields
     if (!customerId || !items || items.length === 0) {
       return res.status(400).json({ message: "Customer ID and items are required" });
     }
- 
+
+
+    // Validate new fields
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.unitPrice === undefined || item.quantity === undefined) {
+        return res.status(400).json({ 
+          message: `Item ${i + 1}: unitPrice and quantity are required` 
+        });
+      }
+    }
+
     // Fetch customer
     const customer = await Customer.findById(customerId);
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
     }
- 
-    // Calculate totals
-    const subtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+    // Calculate totals with new logic
+    const subtotal = items.reduce((sum, item) => {
+      const unitPrice = Number(item.unitPrice) || 0;
+      const quantity = Number(item.quantity) || 0;
+      return sum + (unitPrice * quantity);
+    }, 0);
+    
     const taxAmount = taxPercent ? (subtotal * taxPercent) / 100 : 0;
     const totalAmount = subtotal + taxAmount;
- 
+
     console.log('💰 Calculated totals:', { subtotal, taxAmount, totalAmount });
- 
-    // Update invoice in DB
+
+    // Update invoice in DB with new fields
     const updatedInvoice = await Invoice.findByIdAndUpdate(
       id,
       {
@@ -201,7 +252,9 @@ export const updateInvoice = async (req, res) => {
         items: items.map(item => ({
           description: item.description,
           remarks: item.remarks || "",
-          amount: Number(item.amount) || 0
+          unitPrice: Number(item.unitPrice) || 0,
+          quantity: Number(item.quantity) || 0,
+          amount: (Number(item.unitPrice) || 0) * (Number(item.quantity) || 0)
         })),
         totalAmount,
         date: invoiceDate ? new Date(invoiceDate) : new Date(),
@@ -214,18 +267,18 @@ export const updateInvoice = async (req, res) => {
       },
       { new: true, runValidators: true }
     ).populate("customerId");
- 
+
     if (!updatedInvoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
- 
+
     console.log('✅ Invoice updated successfully:', updatedInvoice.invoiceNumber);
- 
+
     res.json({
       message: "Invoice updated successfully",
       invoice: updatedInvoice
     });
- 
+
   } catch (error) {
     console.error("❌ Error updating invoice:", error);
     if (error.name === 'ValidationError') {
@@ -237,7 +290,7 @@ export const updateInvoice = async (req, res) => {
     res.status(500).json({ message: "Error updating invoice", error: error.message });
   }
 };
- 
+
 // Serve payment proof files
 export const getPaymentProof = async (req, res) => {
   try {
@@ -248,7 +301,7 @@ export const getPaymentProof = async (req, res) => {
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ message: "File not found" });
     }
- 
+
     // Set appropriate headers based on file type
     const ext = path.extname(filename).toLowerCase();
     const mimeTypes = {
@@ -259,7 +312,7 @@ export const getPaymentProof = async (req, res) => {
       '.doc': 'application/msword',
       '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     };
- 
+
     const mimeType = mimeTypes[ext] || 'application/octet-stream';
    
     // For images and PDFs, display in browser; for others, download
@@ -270,17 +323,17 @@ export const getPaymentProof = async (req, res) => {
       res.setHeader('Content-Type', mimeType);
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     }
- 
+
     // Stream the file
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
- 
+
   } catch (error) {
     console.error("Error serving payment proof:", error);
     res.status(500).json({ message: "Error serving file" });
   }
 };
- 
+
 // Get payment proof info for a specific invoice
 export const getInvoicePaymentProof = async (req, res) => {
   try {
@@ -290,21 +343,21 @@ export const getInvoicePaymentProof = async (req, res) => {
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
- 
+
     if (!invoice.paymentDetails?.proofFile) {
       return res.status(404).json({ message: "No payment proof found for this invoice" });
     }
- 
+
     res.json({
       paymentProof: invoice.paymentDetails.proofFile
     });
- 
+
   } catch (error) {
     console.error("Error fetching payment proof:", error);
     res.status(500).json({ message: "Error fetching payment proof", error: error.message });
   }
 };
- 
+
 // Add this function to delete invoice
 export const deleteInvoice = async (req, res) => {
   try {
@@ -314,7 +367,14 @@ export const deleteInvoice = async (req, res) => {
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
- 
+
+    // ✅ CHECK IF INVOICE IS PAID - PREVENT DELETION
+    if (invoice.status === "paid") {
+      return res.status(400).json({ 
+        message: "Cannot delete invoice that has been paid. Paid invoices cannot be deleted." 
+      });
+    }
+
     // Delete associated payment proof file if exists
     if (invoice.paymentDetails?.proofFile?.filePath) {
       try {
@@ -325,7 +385,7 @@ export const deleteInvoice = async (req, res) => {
         console.error("Error deleting payment proof file:", fileError);
       }
     }
- 
+
     const deletedInvoice = await Invoice.findByIdAndDelete(id);
    
     res.json({ message: "Invoice deleted successfully" });
@@ -335,23 +395,33 @@ export const deleteInvoice = async (req, res) => {
     res.status(500).json({ message: "Error deleting invoice", error: error.message });
   }
 };
- 
-// Update the generateInvoice function
+
+// Update the generateInvoice function with new fields
 export const generateInvoice = async (req, res) => {
   try {
-    const { customerId, items, totalAmount, invoiceDate, dueDate, taxPercent, notes, currency } = req.body;
- 
+    const { customerId, items, invoiceDate, dueDate, taxPercent, notes, currency } = req.body;
+
     // Validate required fields
     if (!customerId || !items || items.length === 0) {
       return res.status(400).json({ message: "Customer ID and items are required" });
     }
- 
+
+    // Validate new fields
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.unitPrice === undefined || item.quantity === undefined) {
+        return res.status(400).json({ 
+          message: `Item ${i + 1}: unitPrice and quantity are required` 
+        });
+      }
+    }
+
     // Fetch customer
     const customer = await Customer.findById(customerId);
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
     }
- 
+
     // Fetch or create company info
     let company = await Company.findOne();
     if (!company) {
@@ -364,19 +434,26 @@ export const generateInvoice = async (req, res) => {
         taxId: 'TAX-123456789',
       });
     }
- 
-    // Calculate totals
-    const subtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+    // Calculate totals with new logic
+    const subtotal = items.reduce((sum, item) => {
+      const unitPrice = Number(item.unitPrice) || 0;
+      const quantity = Number(item.quantity) || 0;
+      return sum + (unitPrice * quantity);
+    }, 0);
+    
     const taxAmount = taxPercent ? (subtotal * taxPercent) / 100 : 0;
     const grandTotal = subtotal + taxAmount;
- 
-    // Save invoice in DB with currency and remarks - UPDATED TO INCLUDE REMARKS
+
+    // Save invoice in DB with new fields
     const invoice = new Invoice({
       customerId,
       items: items.map(item => ({
         description: item.description,
-        remarks: item.remarks || "", // ADD REMARKS FIELD
-        amount: Number(item.amount) || 0
+        remarks: item.remarks || "",
+        unitPrice: Number(item.unitPrice) || 0, // NEW FIELD
+        quantity: Number(item.quantity) || 0, // NEW FIELD
+        amount: (Number(item.unitPrice) || 0) * (Number(item.quantity) || 0) // Auto-calculated
       })),
       totalAmount: grandTotal,
       date: invoiceDate ? new Date(invoiceDate) : new Date(),
@@ -389,10 +466,10 @@ export const generateInvoice = async (req, res) => {
       status: "sent"
     });
     await invoice.save();
- 
+
     // Fetch the saved invoice to get the auto-generated numbers
     const savedInvoice = await Invoice.findById(invoice._id).populate("customerId");
- 
+
     // PDF setup - stream directly to response
     const doc = new PDFDocument({
       size: "A4",
@@ -405,20 +482,20 @@ export const generateInvoice = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=${savedInvoice.invoiceNumber}.pdf`);
    
     doc.pipe(res);
- 
+
     // ===== DYNAMIC POSITIONING VARIABLES =====
     let currentY = 30;
     const leftColumn = 50;
     const rightColumn = 350;
     const pageWidth = 550;
     const columnWidth = 200;
- 
+
     // Get currency symbol and name
     const currencySymbol = getCurrencySymbol(currency);
     const amountWords = getAmountInWords(grandTotal, currency);
- 
+
     // ===== LOGO SECTION =====
-      const addHeader = (pageNumber) => {
+    const addHeader = (pageNumber) => {
       const headerY = 30;
      
       // ===== LOGO SECTION =====
@@ -437,83 +514,45 @@ export const generateInvoice = async (req, res) => {
       } catch (logoError) {
         console.error("❌ Error loading logo:", logoError);
       }
- 
+
       // ===== COMPANY INFO =====
-    //   doc.fontSize(20).font('Helvetica-Bold').text(company.companyName, leftColumn, headerY);
-     
-    //   doc.fontSize(10).font('Helvetica')
-    //      .text(company.address, leftColumn, headerY + 30)
-    //      .text(`Phone: ${company.phone || "000-000-0000"}`, leftColumn, headerY + 45)
-    //      .text(`Email: ${company.email || "contact@company.com"}`, leftColumn, headerY + 60);
- 
-    //   if (company.taxId) {
-    //     doc.text(`TaxID: ${company.taxId}`, leftColumn, headerY + 75);
-    //   }
- 
-    //   // Horizontal line after header
-    //   const lineY = Math.max(headerY + logoHeight, headerY + 90) + 10;
-    //   doc.moveTo(leftColumn, lineY).lineTo(pageWidth, lineY).stroke();
-     
-    //   // ADD SPACE AFTER HEADER LINE - This is the key change
-    //   const spaceAfterHeader = 20; // Adjust this value to increase/decrease space
-     
-    //   // Page number (optional)
-    //   // doc.fontSize(8).font('Helvetica')
-    //   //    .text(`Page ${pageNumber}`, pageWidth - 30, headerY + 10);
-     
-    //   // Return the Y position after header (line position + space)
-    //   return lineY + spaceAfterHeader;
-    // };
- 
- 
-      // ===== COMPANY INFO =====
-  // Company Name
-  doc.fontSize(20).font('Helvetica-Bold')
-     .text(company.companyName, leftColumn, headerY);
- 
-  // Set font and line height for company details
-  doc.fontSize(10).font('Helvetica');
-  const lineSpacing = 2; // uniform spacing between lines
- 
-  // Start Y position for address and details
-  let currentY = headerY + 30;
- 
-  // Draw address with wrapping and get its bottom position
-  const addressText = company.address || "123 Main Street, City, ZIP";
-  const addressWidth = pageWidth / 2; // keep it within half the page width
-  const addressHeight = doc.heightOfString(addressText, {
-    width: addressWidth,
-  });
- 
-  doc.text(addressText, leftColumn, currentY, { width: addressWidth });
-  currentY += addressHeight + lineSpacing;
- 
-  // Draw phone number
-  doc.text(`Phone: ${company.phone || "000-000-0000"}`, leftColumn, currentY);
-  currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
- 
-  // Draw email
-  doc.text(`Email: ${company.email || "contact@company.com"}`, leftColumn, currentY);
-  currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
- 
-  // Horizontal line after header (whichever is lower — logo or text)
-  const lineY = Math.max(headerY + logoHeight, currentY) + 10;
-  doc.moveTo(leftColumn, lineY).lineTo(pageWidth, lineY).stroke();
- 
-  // Add space after header
-  const spaceAfterHeader = 20;
- 
-  // Return Y position after header (line + space)
-  return lineY + spaceAfterHeader;
-}
-///--------------------------Company Infor----------------------------------------------------------------------
- 
-     // ===== FOOTER LINE FUNCTION - FOR EVERY PAGE =====
+      doc.fontSize(20).font('Helvetica-Bold')
+         .text(company.companyName, leftColumn, headerY);
+
+      doc.fontSize(10).font('Helvetica');
+      const lineSpacing = 2;
+
+      let currentY = headerY + 30;
+
+      const addressText = company.address || "123 Main Street, City, ZIP";
+      const addressWidth = pageWidth / 2;
+      const addressHeight = doc.heightOfString(addressText, {
+        width: addressWidth,
+      });
+
+      doc.text(addressText, leftColumn, currentY, { width: addressWidth });
+      currentY += addressHeight + lineSpacing;
+
+      doc.text(`Phone: ${company.phone || "000-000-0000"}`, leftColumn, currentY);
+      currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
+
+      doc.text(`Email: ${company.email || "contact@company.com"}`, leftColumn, currentY);
+      currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
+
+      const lineY = Math.max(headerY + logoHeight, currentY) + 10;
+      doc.moveTo(leftColumn, lineY).lineTo(pageWidth, lineY).stroke();
+
+      const spaceAfterHeader = 20;
+
+      return lineY + spaceAfterHeader;
+    }
+
+    // ===== FOOTER LINE FUNCTION - FOR EVERY PAGE =====
     const addFooterLine = () => {
       const footerY = 750;
       doc.moveTo(leftColumn, footerY).lineTo(pageWidth, footerY).stroke();
     };
- 
+
     // ===== FINAL FOOTER FUNCTION - FOR LAST PAGE ONLY =====
     const addFinalFooter = () => {
       const footerY = 750;
@@ -521,16 +560,18 @@ export const generateInvoice = async (req, res) => {
       doc.fontSize(14).font('Helvetica')
          .text("Thank You For Your Business!", (leftColumn + pageWidth) / 2, footerY + 15, { align: "right" });
     };
- 
-    // ===== TABLE HEADER FUNCTION =====
+
+    // ===== UPDATED TABLE HEADER FUNCTION =====
     const addTableHeader = (yPosition) => {
       doc.rect(leftColumn, yPosition, pageWidth - leftColumn, 20).fill("#f0f0f0");
-      doc.fontSize(10).font('Helvetica-Bold').fillColor("#000")
+      doc.fontSize(8).font('Helvetica-Bold').fillColor("#000")
          .text("DESCRIPTION", leftColumn + 10, yPosition + 5)
-         .text("REMARKS", leftColumn + 200, yPosition + 5)
+         .text("REMARKS", leftColumn + 120, yPosition + 5)
+         .text("UNIT PRICE", leftColumn + 200, yPosition + 5) // NEW COLUMN
+         .text("QTY", leftColumn + 260, yPosition + 5) // NEW COLUMN
          .text(`AMOUNT (${currencySymbol})`, pageWidth - 80, yPosition + 5, { align: "right" });
     };
- 
+
     // ===== TRACK PAGES FOR HEADER/FOOTER =====
     let pageNumber = 1;
    
@@ -540,70 +581,60 @@ export const generateInvoice = async (req, res) => {
     // Listen for page additions to add headers to subsequent pages
     doc.on('pageAdded', () => {
       pageNumber++;
-      currentY = addHeader(pageNumber); // Reset currentY for new page
-      addFooterLine(); // Add footer line to every new page
+      currentY = addHeader(pageNumber);
+      addFooterLine();
     });
- 
+
     // Add footer line to first page
     addFooterLine();
- 
+
     // ===== BILL TO SECTION - LEFT SIDE =====
-  // ===== BILL TO SECTION - LEFT SIDE =====
-const billToStartY = currentY;
-doc.fontSize(16).font('Helvetica-Bold').text("BILL TO", leftColumn, currentY);
-currentY += 25; // Spacing after "BILL TO" title
- 
-// Skip customer name and use company directly
-const customerCompany = customer.company;
- 
-if (customerCompany) {
-  doc.fontSize(10).font('Helvetica-Bold')
-     .text(customerCompany, leftColumn, currentY);
-  currentY += 20; // 3 spaces after company name
-}
- 
-// Handle multi-line address with consistent spacing
-const addressLines = customer.address.split('\n').filter(line => line.trim() !== '');
-addressLines.forEach((line, index) => {
-  doc.fontSize(10).font('Helvetica')
-     .text(line.trim(), leftColumn, currentY);
-  currentY += 15; // 2 spaces for each address line
-});
- 
-// Add phone and email with consistent spacing
-if (customer.phone) {
-  doc.text(`Phone: ${customer.phone}`, leftColumn, currentY);
-  currentY += 15; // 2 spaces
-}
- 
-if (customer.email) {
-  doc.text(`Email: ${customer.email}`, leftColumn, currentY);
-  currentY += 15; // 2 spaces
-}
- 
-// Reset currentY to the highest point for right column to maintain layout
-currentY = billToStartY;
- 
- 
-///---------------------------- Bill To ---generate -------------------------------------------------------------------------
- 
- 
- 
+    const billToStartY = currentY;
+    doc.fontSize(16).font('Helvetica-Bold').text("BILL TO", leftColumn, currentY);
+    currentY += 25;
+
+    const customerCompany = customer.company;
+
+    if (customerCompany) {
+      doc.fontSize(10).font('Helvetica-Bold')
+         .text(customerCompany, leftColumn, currentY);
+      currentY += 20;
+    }
+
+    const addressLines = customer.address.split('\n').filter(line => line.trim() !== '');
+    addressLines.forEach((line, index) => {
+      doc.fontSize(10).font('Helvetica')
+         .text(line.trim(), leftColumn, currentY);
+      currentY += 15;
+    });
+
+    if (customer.phone) {
+      doc.text(`Phone: ${customer.phone}`, leftColumn, currentY);
+      currentY += 15;
+    }
+
+    if (customer.email) {
+      doc.text(`Email: ${customer.email}`, leftColumn, currentY);
+      currentY += 15;
+    }
+
+    currentY = billToStartY;
+
     // ===== INVOICE DETAILS SECTION - RIGHT SIDE =====
     doc.fontSize(16).font('Helvetica-Bold').text("INVOICE", rightColumn, currentY);
     currentY += 25;
- 
+
     // Invoice details in two columns
     const detailLabels = ["DATE                 :", "INVOICE NO     :", "CUSTOMER ID :", "DUE DATE        :"];
     const invDate = new Date(savedInvoice.date).toISOString().split('T')[0];
     const due = savedInvoice.dueDate ? new Date(savedInvoice.dueDate).toISOString().split('T')[0] : 'N/A';
     const detailValues = [
       invDate,
-      savedInvoice.invoiceNumber, // Use auto-generated invoice number
-      savedInvoice.customerId.customerId, // Use auto-generated customer ID
+      savedInvoice.invoiceNumber,
+      savedInvoice.customerId.customerId,
       due
     ];
- 
+
     detailLabels.forEach((label, index) => {
       doc.fontSize(10).font('Helvetica-Bold')
          .text(label, rightColumn, currentY);
@@ -611,62 +642,76 @@ currentY = billToStartY;
          .text(detailValues[index], rightColumn + 80, currentY);
       currentY += 15;
     });
- 
+
     // ===== ITEMS TABLE =====
     const leftColumnBottom = billToStartY + 120;
     currentY = Math.max(currentY, leftColumnBottom) + 10;
- 
+
     // Add table header
     addTableHeader(currentY);
     currentY += 25;
- 
-    // Table rows
+
+    // Table rows with new columns
     items.forEach((item, index) => {
       // Check if we need a new page
       if (currentY > 650) {
         doc.addPage();
-        currentY = 150; // Reset Y position after header on new page
-        // Add table header on new page
+        currentY = 150;
         addTableHeader(currentY);
         currentY += 25;
       }
- 
-      // Alternate row background
+
       const remarks = item.remarks || "";
-     
-      // Calculate heights for both columns
+      const unitPrice = Number(item.unitPrice) || 0;
+      const quantity = Number(item.quantity) || 0;
+      const amount = unitPrice * quantity;
+      const formattedUnitPrice = formatCurrencyAmount(unitPrice, currency);
+      const formattedAmount = formatCurrencyAmount(amount, currency);
+
+      // Calculate heights for all columns
       const descriptionHeight = doc.heightOfString(item.description, {
-        width: 180,
+        width: 100,
         align: 'left'
       });
      
       const remarksHeight = doc.heightOfString(remarks, {
-        width: 150,
+        width: 70,
         align: 'left'
       });
-      const formattedAmount = formatCurrencyAmount(Number(item.amount), currency);
-      // Use the maximum height for the row
+
       const rowHeight = Math.max(descriptionHeight, remarksHeight, 20);
- 
+
       // Draw background for entire row
       if (index % 2 === 0) {
         doc.rect(leftColumn, currentY - 5, pageWidth - leftColumn, rowHeight + 10)
            .fillOpacity(0.1).fill("#eeeeee").fillOpacity(1).fillColor('black');
       }
- 
+
       // Draw description
-      doc.fontSize(10).font('Helvetica')
+      doc.fontSize(8).font('Helvetica')
          .text(item.description, leftColumn + 10, currentY, {
-           width: 180,
+           width: 100,
            align: 'left'
          });
- 
+
       // Draw remarks
-      doc.text(remarks, leftColumn + 200, currentY, {
-        width: 150,
+      doc.text(remarks, leftColumn + 120, currentY, {
+        width: 70,
         align: 'left'
       });
- 
+
+      // Draw unit price
+      doc.text(`${currencySymbol}${formattedUnitPrice}`, leftColumn + 200, currentY, {
+        width: 50,
+        align: 'right'
+      });
+
+      // Draw quantity
+      doc.text(quantity.toString(), leftColumn + 260, currentY, {
+        width: 30,
+        align: 'center'
+      });
+
       // Draw amount
       doc.text(`${currencySymbol}${formattedAmount}`, pageWidth - 100, currentY, {
         align: "right"
@@ -674,10 +719,9 @@ currentY = billToStartY;
      
       currentY += rowHeight + 10;
     });
- 
+
     // ===== TOTALS SECTION =====
     currentY += 10;
-    // Format amounts based on currency
     const formattedSubtotal = formatCurrencyAmount(subtotal, currency);
     const formattedTaxAmount = formatCurrencyAmount(taxAmount, currency);
     const formattedGrandTotal = formatCurrencyAmount(grandTotal, currency);
@@ -703,12 +747,11 @@ currentY = billToStartY;
        .text("TOTAL:", pageWidth - 150, currentY, { align: "left" })
        .text(`${currencySymbol}${formattedGrandTotal}`, pageWidth - 100, currentY, { align: "right" });
     currentY += 20;
- 
+
     doc.moveTo(pageWidth - 200, currentY).lineTo(pageWidth, currentY).stroke();
     currentY += 20;
- 
+
     // ===== AMOUNT IN WORDS =====
-    //const amountWords = toWords(Math.round(grandTotal)) + " dollars only";
     const wordsHeight = doc.heightOfString(amountWords + "/- .", { width: pageWidth - leftColumn });
    
     doc.fontSize(10).font('Helvetica-Bold')
@@ -716,53 +759,38 @@ currentY = billToStartY;
          width: pageWidth - leftColumn
        });
     currentY += wordsHeight + 20;
- 
+
     // ===== OTHER COMMENTS SECTION =====
- 
-    // doc.fontSize(11).font('Helvetica-Bold').text("OTHER COMMENTS", leftColumn, currentY);
-    // currentY += 15;
- 
-    // // Add Additional Notes from the form (if provided)
-    // if (notes && notes.trim() !== "") {
-    //   doc.fontSize(10).font('Helvetica')
-    //      .text(`${'•'} ${notes}`, leftColumn + 10, currentY);
-    //   currentY += 30;
-    // }
- 
-    if (invoice.notes && invoice.notes.trim() !== "") {
-    doc.fontSize(11).font('Helvetica-Bold').text("OTHER COMMENTS", leftColumn, currentY);
-    currentY += 15;
- 
-    // Add Additional Notes from the form (if provided)
-   
-      // Split notes by '.' to create bullet points for each sentence
-      const sentences = invoice.notes.split('.').map(s => s.trim()).filter(s => s.length > 0);
- 
+    if (notes && notes.trim() !== "") {
+      doc.fontSize(11).font('Helvetica-Bold').text("OTHER COMMENTS", leftColumn, currentY);
+      currentY += 15;
+
+      const sentences = notes.split('.').map(s => s.trim()).filter(s => s.length > 0);
       doc.fontSize(10).font('Helvetica');
       sentences.forEach(sentence => {
         const bulletText = `• ${sentence}.`;
-        const textHeight = doc.heightOfString(bulletText, { width: 500 }); // wrap text properly
+        const textHeight = doc.heightOfString(bulletText, { width: 500 });
         doc.text(bulletText, leftColumn + 10, currentY, { width: 500 });
-        currentY += textHeight + 5; // move down for next bullet
+        currentY += textHeight + 5;
       });
     }
- 
+
     // Terms & Conditions section
     doc.fontSize(10).font('Helvetica-Bold').text("Terms & Conditions", leftColumn, currentY);
     currentY += 15;
- 
+
     const defaultComments = [
       "Total payment due in 30 days",
       "Please include the invoice number on your check"
     ];
- 
+
     // Add default comments with bullet points
     defaultComments.forEach((comment, index) => {
       doc.fontSize(10).font('Helvetica')
          .text(`${'•'} ${comment}`, leftColumn + 10, currentY);
       currentY += 15;
     });
- 
+
     // ===== SIGNATURE SECTION =====
     const signatureY = 680;
     const signatureX = pageWidth - 125;
@@ -772,19 +800,19 @@ currentY = billToStartY;
          width: 150,
          align: 'center'
        });
- 
+
     // ===== ADD FINAL FOOTER TO LAST PAGE =====
     addFinalFooter();
- 
+
     doc.end();
- 
+
   } catch (error) {
     console.error("Error generating invoice:", error);
     res.status(500).json({ message: "Error generating invoice", error: error.message });
   }
 };
- 
-// Update the downloadInvoice function to use the same design as generateInvoice
+
+// Update the downloadInvoice function with new fields
 export const downloadInvoice = async (req, res) => {
   try {
     console.log('📥 Download invoice request received for ID:', req.params.id);
@@ -793,14 +821,14 @@ export const downloadInvoice = async (req, res) => {
     if (!id) {
       return res.status(400).json({ message: "Invoice ID is required" });
     }
- 
+
     // Fetch invoice with customer details
     const invoice = await Invoice.findById(id).populate("customerId");
- 
+
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
- 
+
     // Fetch or create company info
     let company = await Company.findOne();
    
@@ -813,7 +841,7 @@ export const downloadInvoice = async (req, res) => {
         taxId: 'TAX-123456789',
       };
     }
- 
+
     // PDF setup - stream directly to response
     const doc = new PDFDocument({
       size: "A4",
@@ -824,21 +852,21 @@ export const downloadInvoice = async (req, res) => {
     // Set response headers for PDF download
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=${invoice.invoiceNumber}.pdf`);
-    res.setHeader('X-Invoice-Number', invoice.invoiceNumber); // Add this line
+    res.setHeader('X-Invoice-Number', invoice.invoiceNumber);
    
     doc.pipe(res);
- 
+
     // ===== DYNAMIC POSITIONING VARIABLES =====
     let currentY = 30;
     const leftColumn = 50;
     const rightColumn = 350;
     const pageWidth = 550;
     const columnWidth = 200;
- 
+
     // Get currency symbol and name
     const currencySymbol = getCurrencySymbol(invoice.currency);
     const amountWords = getAmountInWords(invoice.totalAmount, invoice.currency);
- 
+
     // ===== LOGO SECTION =====
     const addHeader = (pageNumber) => {
       const headerY = 30;
@@ -859,74 +887,45 @@ export const downloadInvoice = async (req, res) => {
       } catch (logoError) {
         console.error("❌ Error loading logo:", logoError);
       }
- 
+
       // ===== COMPANY INFO =====
-    //   doc.fontSize(20).font('Helvetica-Bold').text(company.companyName, leftColumn, headerY);
-     
-    //   doc.fontSize(10).font('Helvetica')
-    //      .text(company.address, leftColumn, headerY + 30)
-    //      .text(`Phone: ${company.phone || "000-000-0000"}`, leftColumn, headerY + 45)
-    //      .text(`Email: ${company.email || "contact@company.com"}`, leftColumn, headerY + 60);
- 
-    //   // Horizontal line after header
-    //   const lineY = Math.max(headerY + logoHeight, headerY + 90) + 10;
-    //   doc.moveTo(leftColumn, lineY).lineTo(pageWidth, lineY).stroke();
-     
-    //   // ADD SPACE AFTER HEADER LINE
-    //   const spaceAfterHeader = 20;
-     
-    //   // Return the Y position after header (line position + space)
-    //   return lineY + spaceAfterHeader;
-    // };
- 
- 
- 
-        // ===== COMPANY INFO =====
-  // Company Name
-  doc.fontSize(20).font('Helvetica-Bold')
-     .text(company.companyName, leftColumn, headerY);
- 
-  // Set font and line height for company details
-  doc.fontSize(10).font('Helvetica');
-  const lineSpacing = 2; // uniform spacing between lines
- 
-  // Start Y position for address and details
-  let currentY = headerY + 30;
- 
-  // Draw address with wrapping and get its bottom position
-  const addressText = company.address || "123 Main Street, City, ZIP";
-  const addressWidth = pageWidth / 2; // keep it within half the page width
-  const addressHeight = doc.heightOfString(addressText, {
-    width: addressWidth,
-  });
- 
-  doc.text(addressText, leftColumn, currentY, { width: addressWidth });
-  currentY += addressHeight + lineSpacing;
- 
-  // Draw phone number
-  doc.text(`Phone: ${company.phone || "000-000-0000"}`, leftColumn, currentY);
-  currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
- 
-  // Draw email
-  doc.text(`Email: ${company.email || "contact@company.com"}`, leftColumn, currentY);
-  currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
- 
-  // Horizontal line after header (whichever is lower — logo or text)
-  const lineY = Math.max(headerY + logoHeight, currentY) + 10;
-  doc.moveTo(leftColumn, lineY).lineTo(pageWidth, lineY).stroke();
- 
-  // Add space after header
-  const spaceAfterHeader = 20;
- 
-  // Return Y position after header (line + space)
-  return lineY + spaceAfterHeader;
-}
-     // ===== FOOTER LINE FUNCTION - FOR EVERY PAGE =====
+      doc.fontSize(20).font('Helvetica-Bold')
+         .text(company.companyName, leftColumn, headerY);
+
+      doc.fontSize(10).font('Helvetica');
+      const lineSpacing = 2;
+
+      let currentY = headerY + 30;
+
+      const addressText = company.address || "123 Main Street, City, ZIP";
+      const addressWidth = pageWidth / 2;
+      const addressHeight = doc.heightOfString(addressText, {
+        width: addressWidth,
+      });
+
+      doc.text(addressText, leftColumn, currentY, { width: addressWidth });
+      currentY += addressHeight + lineSpacing;
+
+      doc.text(`Phone: ${company.phone || "000-000-0000"}`, leftColumn, currentY);
+      currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
+
+      doc.text(`Email: ${company.email || "contact@company.com"}`, leftColumn, currentY);
+      currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
+
+      const lineY = Math.max(headerY + logoHeight, currentY) + 10;
+      doc.moveTo(leftColumn, lineY).lineTo(pageWidth, lineY).stroke();
+
+      const spaceAfterHeader = 20;
+
+      return lineY + spaceAfterHeader;
+    }
+
+    // ===== FOOTER LINE FUNCTION - FOR EVERY PAGE =====
     const addFooterLine = () => {
       const footerY = 750;
       doc.moveTo(leftColumn, footerY).lineTo(pageWidth, footerY).stroke();
     };
- 
+
     // ===== FINAL FOOTER FUNCTION - FOR LAST PAGE ONLY =====
     const addFinalFooter = () => {
       const footerY = 750;
@@ -934,16 +933,18 @@ export const downloadInvoice = async (req, res) => {
       doc.fontSize(14).font('Helvetica')
          .text("Thank You For Your Business!", (leftColumn + pageWidth) / 2, footerY + 15, { align: "right" });
     };
- 
-    // ===== TABLE HEADER FUNCTION =====
+
+    // ===== UPDATED TABLE HEADER FUNCTION =====
     const addTableHeader = (yPosition) => {
       doc.rect(leftColumn, yPosition, pageWidth - leftColumn, 20).fill("#f0f0f0");
-      doc.fontSize(10).font('Helvetica-Bold').fillColor("#000")
+      doc.fontSize(8).font('Helvetica-Bold').fillColor("#000")
          .text("DESCRIPTION", leftColumn + 10, yPosition + 5)
-         .text("REMARKS", leftColumn + 200, yPosition + 5)
+         .text("REMARKS", leftColumn + 120, yPosition + 5)
+         .text("UNIT PRICE", leftColumn + 200, yPosition + 5) // NEW COLUMN
+         .text("QTY", leftColumn + 260, yPosition + 5) // NEW COLUMN
          .text(`AMOUNT (${currencySymbol})`, pageWidth - 80, yPosition + 5, { align: "right" });
     };
- 
+
     // ===== TRACK PAGES FOR HEADER/FOOTER =====
     let pageNumber = 1;
    
@@ -953,92 +954,60 @@ export const downloadInvoice = async (req, res) => {
     // Listen for page additions to add headers to subsequent pages
     doc.on('pageAdded', () => {
       pageNumber++;
-      currentY = addHeader(pageNumber); // Reset currentY for new page
-      addFooterLine(); // Add footer line to every new page
+      currentY = addHeader(pageNumber);
+      addFooterLine();
     });
- 
+
     // Add footer line to first page
     addFooterLine();
- 
-    // // ===== BILL TO SECTION - LEFT SIDE =====
-    // const billToStartY = currentY;
-    // doc.fontSize(16).font('Helvetica-Bold').text("BILL TO", leftColumn, currentY);
-    // currentY += 20;
- 
-    // doc.fontSize(10).font('Helvetica')
-    //    .text(invoice.customerId.name, leftColumn, currentY);
-    // currentY += 15;
-   
-    // if (invoice.customerId.company) {
-    //   doc.text(invoice.customerId.company, leftColumn, currentY);
-    //   currentY += 15;
-    // }
-   
-    // // Handle multi-line address
-    // const addressLines = doc.heightOfString(invoice.customerId.address, { width: columnWidth });
-    // doc.text(invoice.customerId.address, leftColumn, currentY, { width: columnWidth });
-    // currentY += addressLines + 5;
-   
-    // doc.text(`Phone: ${invoice.customerId.phone}`, leftColumn, currentY);
-    // currentY += 15;
-   
-    // doc.text(`Email: ${invoice.customerId.email}`, leftColumn, currentY);
-   
-    // // Reset currentY to the highest point for right column
-    // currentY = billToStartY;
-   
- 
-        // ===== BILL TO SECTION - LEFT SIDE =====
+
+    // ===== BILL TO SECTION - LEFT SIDE =====
     const billToStartY = currentY;
     doc.fontSize(16).font('Helvetica-Bold').text("BILL TO", leftColumn, currentY);
-    currentY += 25; // Spacing after "BILL TO" title
- 
-    // Skip customer name and use company directly - USE CORRECT FIELD NAME
+    currentY += 25;
+
     const customerCompany = invoice.customerId.company;
- 
+
     if (customerCompany) {
       doc.fontSize(10).font('Helvetica-Bold')
          .text(customerCompany, leftColumn, currentY);
-      currentY += 20; // 3 spaces after company name
+      currentY += 20;
     }
- 
-    // Handle multi-line address with consistent spacing - USE CORRECT FIELD NAME
+
     const addressLines = invoice.customerId.address.split('\n').filter(line => line.trim() !== '');
     addressLines.forEach((line, index) => {
       doc.fontSize(10).font('Helvetica')
          .text(line.trim(), leftColumn, currentY);
-      currentY += 15; // 2 spaces for each address line
+      currentY += 15;
     });
- 
-    // Add phone and email with consistent spacing - USE CORRECT FIELD NAMES
+
     if (invoice.customerId.phone) {
       doc.text(`Phone: ${invoice.customerId.phone}`, leftColumn, currentY);
-      currentY += 15; // 2 spaces
+      currentY += 15;
     }
- 
+
     if (invoice.customerId.email) {
       doc.text(`Email: ${invoice.customerId.email}`, leftColumn, currentY);
-      currentY += 15; // 2 spaces
+      currentY += 15;
     }
- 
-    // Reset currentY to the highest point for right column to maintain layout
+
     currentY = billToStartY;
-//-----------------------------------------------------------------bill to download ------------------------------------------------
+
     // ===== INVOICE DETAILS SECTION - RIGHT SIDE =====
     doc.fontSize(16).font('Helvetica-Bold').text("INVOICE", rightColumn, currentY);
     currentY += 25;
- 
+
     // Invoice details in two columns
     const detailLabels = ["DATE                 :", "INVOICE NO     :", "CUSTOMER ID :", "DUE DATE        :"];
     const invDate = new Date(invoice.date).toISOString().split('T')[0];
     const due = invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : 'N/A';
     const detailValues = [
       invDate,
-      invoice.invoiceNumber, // Use auto-generated invoice number
-      invoice.customerId.customerId, // Use auto-generated customer ID
+      invoice.invoiceNumber,
+      invoice.customerId.customerId,
       due
     ];
- 
+
     detailLabels.forEach((label, index) => {
       doc.fontSize(10).font('Helvetica-Bold')
          .text(label, rightColumn, currentY);
@@ -1046,63 +1015,76 @@ export const downloadInvoice = async (req, res) => {
          .text(detailValues[index], rightColumn + 80, currentY);
       currentY += 15;
     });
- 
+
     // ===== ITEMS TABLE =====
     const leftColumnBottom = billToStartY + 120;
     currentY = Math.max(currentY, leftColumnBottom) + 10;
- 
+
     // Add table header
     addTableHeader(currentY);
     currentY += 25;
- 
-    // Table rows - USE ACTUAL INVOICE ITEMS
+
+    // Table rows with new columns
     invoice.items.forEach((item, index) => {
       // Check if we need a new page
       if (currentY > 650) {
         doc.addPage();
-        currentY = 150; // Reset Y position after header on new page
-        // Add table header on new page
+        currentY = 150;
         addTableHeader(currentY);
         currentY += 25;
       }
- 
-      // Use actual remarks from item or fallback
+
       const remarks = item.remarks || "";
-     
-      // Calculate heights for both columns
+      const unitPrice = item.unitPrice || 0;
+      const quantity = item.quantity || 0;
+      const amount = item.amount || 0;
+      const formattedUnitPrice = formatCurrencyAmount(unitPrice, invoice.currency);
+      const formattedAmount = formatCurrencyAmount(amount, invoice.currency);
+
+      // Calculate heights for all columns
       const descriptionHeight = doc.heightOfString(item.description, {
-        width: 180,
+        width: 100,
         align: 'left'
       });
      
       const remarksHeight = doc.heightOfString(remarks, {
-        width: 150,
+        width: 70,
         align: 'left'
       });
-     
-      const formattedAmount = formatCurrencyAmount(Number(item.amount), invoice.currency);
-      // Use the maximum height for the row
+
       const rowHeight = Math.max(descriptionHeight, remarksHeight, 20);
- 
+
       // Draw background for entire row
       if (index % 2 === 0) {
         doc.rect(leftColumn, currentY - 5, pageWidth - leftColumn, rowHeight + 10)
            .fillOpacity(0.1).fill("#eeeeee").fillOpacity(1).fillColor('black');
       }
- 
+
       // Draw description
-      doc.fontSize(10).font('Helvetica')
+      doc.fontSize(8).font('Helvetica')
          .text(item.description, leftColumn + 10, currentY, {
-           width: 180,
+           width: 100,
            align: 'left'
          });
- 
+
       // Draw remarks
-      doc.text(remarks, leftColumn + 200, currentY, {
-        width: 150,
+      doc.text(remarks, leftColumn + 120, currentY, {
+        width: 70,
         align: 'left'
       });
- 
+
+      // Draw unit price
+      doc.text(`${currencySymbol}${formattedUnitPrice}`, leftColumn + 200, currentY, {
+        width: 50,
+        align: 'right'
+      });
+
+      // Draw quantity
+      doc.text(quantity.toString(), leftColumn + 260, currentY, {
+        width: 30,
+        align: 'center'
+      });
+
       // Draw amount
       doc.text(`${currencySymbol}${formattedAmount}`, pageWidth - 100, currentY, {
         align: "right"
@@ -1110,10 +1092,9 @@ export const downloadInvoice = async (req, res) => {
      
       currentY += rowHeight + 10;
     });
- 
+
     // ===== TOTALS SECTION =====
     currentY += 10;
-    // Format amounts based on currency
     const formattedSubtotal = formatCurrencyAmount(invoice.subtotal, invoice.currency);
     const formattedTaxAmount = formatCurrencyAmount(invoice.taxAmount, invoice.currency);
     const formattedGrandTotal = formatCurrencyAmount(invoice.totalAmount, invoice.currency);
@@ -1139,10 +1120,10 @@ export const downloadInvoice = async (req, res) => {
        .text("TOTAL:", pageWidth - 150, currentY, { align: "left" })
        .text(`${currencySymbol}${formattedGrandTotal}`, pageWidth - 100, currentY, { align: "right" });
     currentY += 20;
- 
+
     doc.moveTo(pageWidth - 200, currentY).lineTo(pageWidth, currentY).stroke();
     currentY += 20;
- 
+
     // ===== AMOUNT IN WORDS =====
     const wordsHeight = doc.heightOfString(amountWords + "/- .", { width: pageWidth - leftColumn });
    
@@ -1151,43 +1132,38 @@ export const downloadInvoice = async (req, res) => {
          width: pageWidth - leftColumn
        });
     currentY += wordsHeight + 20;
- 
+
     // ===== OTHER COMMENTS SECTION =====
     if (invoice.notes && invoice.notes.trim() !== "") {
-    doc.fontSize(11).font('Helvetica-Bold').text("OTHER COMMENTS", leftColumn, currentY);
-    currentY += 15;
- 
-    // Add Additional Notes from the form (if provided)
-   
-      // Split notes by '.' to create bullet points for each sentence
+      doc.fontSize(11).font('Helvetica-Bold').text("OTHER COMMENTS", leftColumn, currentY);
+      currentY += 15;
+
       const sentences = invoice.notes.split('.').map(s => s.trim()).filter(s => s.length > 0);
- 
       doc.fontSize(10).font('Helvetica');
       sentences.forEach(sentence => {
         const bulletText = `• ${sentence}.`;
-        const textHeight = doc.heightOfString(bulletText, { width: 500 }); // wrap text properly
+        const textHeight = doc.heightOfString(bulletText, { width: 500 });
         doc.text(bulletText, leftColumn + 10, currentY, { width: 500 });
-        currentY += textHeight + 5; // move down for next bullet
+        currentY += textHeight + 5;
       });
     }
- 
+
     // Terms & Conditions section
     doc.fontSize(10).font('Helvetica-Bold').text("Terms & Conditions", leftColumn, currentY);
     currentY += 15;
- 
+
     const defaultComments = [
       "Total payment due in 30 days",
       "Please include the invoice number on your check"
     ];
- 
+
     // Add default comments with bullet points
     defaultComments.forEach((comment, index) => {
       doc.fontSize(10).font('Helvetica')
          .text(`${'•'} ${comment}`, leftColumn + 10, currentY);
       currentY += 15;
     });
- 
-    // ===== SIGNATURE SECTION =====
+
     // ===== SIGNATURE SECTION =====
     const signatureY = 680;
     const signatureX = pageWidth - 125;
@@ -1210,14 +1186,14 @@ export const downloadInvoice = async (req, res) => {
          width: 150,
          align: 'center'
        });
- 
+
     // ===== ADD FINAL FOOTER TO LAST PAGE =====
     addFinalFooter();
- 
+
     doc.end();
- 
+
     console.log('✅ PDF generated successfully');
- 
+
   } catch (error) {
     console.error("❌ Error downloading invoice:", error);
     console.error("❌ Error stack:", error.stack);
@@ -1228,7 +1204,7 @@ export const downloadInvoice = async (req, res) => {
     });
   }
 };
- 
+
 // Get all invoices
 export const getInvoices = async (req, res) => {
   try {
@@ -1241,7 +1217,7 @@ export const getInvoices = async (req, res) => {
     res.status(500).json({ message: "Error fetching invoices", error: error.message });
   }
 };
- 
+
 // Get active invoices (non-disabled)
 export const getActiveInvoices = async (req, res) => {
   try {
@@ -1254,7 +1230,7 @@ export const getActiveInvoices = async (req, res) => {
     res.status(500).json({ message: "Error fetching invoices", error: error.message });
   }
 };
- 
+
 // Get disabled invoices
 export const getDisabledInvoices = async (req, res) => {
   try {
@@ -1267,7 +1243,7 @@ export const getDisabledInvoices = async (req, res) => {
     res.status(500).json({ message: "Error fetching disabled invoices", error: error.message });
   }
 };
- 
+
 // Get invoice by ID
 export const getInvoiceById = async (req, res) => {
   try {
@@ -1283,35 +1259,220 @@ export const getInvoiceById = async (req, res) => {
     res.status(500).json({ message: "Error fetching invoice", error: error.message });
   }
 };
- 
-// Disable invoice (soft delete)
+// Disable invoice (soft delete) - FIXED WITH UPPERCASE STATUS CHECK
 export const disableInvoice = async (req, res) => {
   try {
     const { id } = req.params;
-   
+    
+    console.log('🔄 Attempting to disable invoice:', id);
+
+    // ✅ CHECK IF INVOICE EXISTS
+    const existingInvoice = await Invoice.findById(id);
+    if (!existingInvoice) {
+      console.log('❌ Invoice not found:', id);
+      return res.status(404).json({ 
+        message: "Invoice not found" 
+      });
+    }
+
+    console.log('📋 Invoice found:', {
+      id: existingInvoice._id,
+      invoiceNumber: existingInvoice.invoiceNumber,
+      status: existingInvoice.status,
+      isDisabled: existingInvoice.isDisabled
+    });
+
+    // ✅ CHECK IF INVOICE IS ALREADY PAID - PREVENT DISABLING (USING UPPERCASE)
+    if (existingInvoice.status === "paid") {
+      console.log('❌ Cannot disable paid invoice:', existingInvoice.invoiceNumber);
+      return res.status(400).json({ 
+        message: "Cannot disable invoice that has been paid. Paid invoices cannot be disabled." 
+      });
+    }
+
+    // ✅ CHECK IF INVOICE IS ALREADY DISABLED
+    if (existingInvoice.isDisabled) {
+      console.log('ℹ️ Invoice already disabled:', existingInvoice.invoiceNumber);
+      return res.status(400).json({ 
+        message: "Invoice is already disabled." 
+      });
+    }
+
+    // Disable the invoice
     const invoice = await Invoice.findByIdAndUpdate(
       id,
       {
         isDisabled: true,
-        deleted: true
+        deleted: true,
+        disabledAt: new Date()
       },
       { new: true }
     ).populate("customerId");
- 
-    if (!invoice) {
-      return res.status(404).json({ message: "Invoice not found" });
-    }
- 
+
+    console.log('✅ Invoice disabled successfully:', invoice.invoiceNumber);
+
     res.json({
       message: "Invoice moved to disabled invoices successfully",
-      invoice
+      invoice: {
+        id: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+        isDisabled: invoice.isDisabled
+      }
     });
+
   } catch (error) {
-    console.error("Error disabling invoice:", error);
-    res.status(500).json({ message: "Error disabling invoice", error: error.message });
+    console.error("❌ Error disabling invoice:", error);
+    
+    // Handle specific MongoDB errors
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        message: "Invalid invoice ID format" 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: "Error disabling invoice", 
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 };
- 
+
+// Permanently delete invoice
+export const permanentDeleteInvoice = async (req, res) => {
+  try {
+    const { id } = req.params;
+   
+    const invoice = await Invoice.findOne({ _id: id, isDisabled: true });
+    if (!invoice) {
+      return res.status(404).json({ message: "Disabled invoice not found" });
+    }
+
+    // ✅ CHECK IF INVOICE IS PAID - PREVENT DELETION
+    if (invoice.status === "paid") {
+      return res.status(400).json({ 
+        message: "Cannot delete invoice that has been paid. Paid invoices cannot be permanently deleted." 
+      });
+    }
+
+    // Delete associated payment proof file if exists
+    if (invoice.paymentDetails?.proofFile?.filePath) {
+      try {
+        if (fs.existsSync(invoice.paymentDetails.proofFile.filePath)) {
+          fs.unlinkSync(invoice.paymentDetails.proofFile.filePath);
+        }
+      } catch (fileError) {
+        console.error("Error deleting payment proof file:", fileError);
+      }
+    }
+
+    await Invoice.findByIdAndDelete(id);
+   
+    res.json({ message: "Invoice permanently deleted successfully" });
+  } catch (error) {
+    console.error("Error permanently deleting invoice:", error);
+    res.status(500).json({ message: "Error deleting invoice", error: error.message });
+  }
+};
+
+// Enhanced function to handle payment verification with file upload and storage
+export const verifyPayment = async (req, res) => {
+  try {
+    const { invoiceId, transactionNumber } = req.body;
+    const transactionProof = req.file; // Get uploaded file
+   
+    // Validate required fields
+    if (!invoiceId || !transactionNumber) {
+      return res.status(400).json({ message: "Invoice ID and transaction number are required" });
+    }
+
+    if (!transactionProof) {
+      return res.status(400).json({ message: "Transaction proof file is required" });
+    }
+
+    // Validate file type
+    const allowedMimeTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+   
+    if (!allowedMimeTypes.includes(transactionProof.mimetype)) {
+      return res.status(400).json({
+        message: "Invalid file type. Supported formats: PDF, JPG, PNG, DOC"
+      });
+    }
+
+    // Validate file size (10MB max)
+    if (transactionProof.size > 10 * 1024 * 1024) {
+      return res.status(400).json({
+        message: "File size too large. Maximum size is 10MB."
+      });
+    }
+
+    // Generate unique filename
+    const fileExtension = path.extname(transactionProof.originalname);
+    const uniqueFileName = `payment-proof-${invoiceId}-${Date.now()}${fileExtension}`;
+    const filePath = path.join(uploadsDir, uniqueFileName);
+
+    // Save file to server
+    fs.writeFileSync(filePath, transactionProof.buffer);
+
+    // Construct file URL
+    const fileUrl = `/api/billing/payment-proofs/${uniqueFileName}`;
+
+    // Find and update invoice status with file details
+    const updatedInvoice = await Invoice.findByIdAndUpdate(
+      invoiceId,
+      {
+        status: "paid",
+        $set: {
+          "paymentDetails.transactionNumber": transactionNumber,
+          "paymentDetails.verifiedAt": new Date(),
+          "paymentDetails.proofFile": {
+            originalName: transactionProof.originalname,
+            mimeType: transactionProof.mimetype,
+            size: transactionProof.size,
+            uploadedAt: new Date(),
+            fileName: uniqueFileName,
+            filePath: filePath,
+            fileUrl: fileUrl
+          }
+        }
+      },
+      { new: true, runValidators: true }
+    ).populate("customerId");
+
+    if (!updatedInvoice) {
+      // Clean up uploaded file if invoice not found
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    // ✅ CREATE TRANSACTION ENTRY AUTOMATICALLY
+    try {
+      await createTransactionForPaidInvoice(updatedInvoice, transactionNumber);
+      console.log(`✅ Transaction history created for invoice: ${updatedInvoice.invoiceNumber}`);
+    } catch (transactionError) {
+      console.error("⚠️ Invoice paid but failed to create transaction:", transactionError);
+      // Don't fail the whole request if transaction creation fails
+    }
+
+    res.json({
+      message: "Payment verified successfully",
+      invoice: updatedInvoice
+    });
+
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    res.status(500).json({ message: "Error verifying payment", error: error.message });
+  }
+};
 // Restore disabled invoice
 export const restoreInvoice = async (req, res) => {
   try {
@@ -1325,11 +1486,11 @@ export const restoreInvoice = async (req, res) => {
       },
       { new: true }
     ).populate("customerId");
- 
+
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
- 
+
     res.json({
       message: "Invoice restored successfully",
       invoice
@@ -1339,34 +1500,3 @@ export const restoreInvoice = async (req, res) => {
     res.status(500).json({ message: "Error restoring invoice", error: error.message });
   }
 };
- 
-// Permanently delete invoice
-export const permanentDeleteInvoice = async (req, res) => {
-  try {
-    const { id } = req.params;
-   
-    const invoice = await Invoice.findOne({ _id: id, isDisabled: true });
-    if (!invoice) {
-      return res.status(404).json({ message: "Disabled invoice not found" });
-    }
- 
-    // Delete associated payment proof file if exists
-    if (invoice.paymentDetails?.proofFile?.filePath) {
-      try {
-        if (fs.existsSync(invoice.paymentDetails.proofFile.filePath)) {
-          fs.unlinkSync(invoice.paymentDetails.proofFile.filePath);
-        }
-      } catch (fileError) {
-        console.error("Error deleting payment proof file:", fileError);
-      }
-    }
- 
-    await Invoice.findByIdAndDelete(id);
-   
-    res.json({ message: "Invoice permanently deleted successfully" });
-  } catch (error) {
-    console.error("Error permanently deleting invoice:", error);
-    res.status(500).json({ message: "Error deleting invoice", error: error.message });
-  }
-};
- 
