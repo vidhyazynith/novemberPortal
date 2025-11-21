@@ -68,6 +68,27 @@ export const getCategoriesByType = async (req, res) => {
   }
 };
 
+// @desc    Get transaction categories (both income and expense)
+// @route   GET /api/categories/transaction/all
+// @access  Private
+export const getTransactionCategories = async (req, res) => {
+  try {
+    const categories = await Category.getTransactionCategories();
+   
+    res.json({
+      success: true,
+      data: categories
+    });
+  } catch (error) {
+    console.error('Error fetching transaction categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching transaction categories',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Create new category
 // @route   POST /api/categories
 // @access  Private/Admin
@@ -108,7 +129,7 @@ export const createCategory = async (req, res) => {
       name: name.trim(),
       type,
       description: description?.trim(),
-      createdBy: new mongoose.Types.ObjectId() // Temporary for testing
+      createdBy: req.user?.id || new mongoose.Types.ObjectId()// Temporary for testing
     });
 
     // Return created category without sensitive info

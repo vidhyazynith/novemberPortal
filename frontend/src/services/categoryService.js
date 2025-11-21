@@ -1,101 +1,115 @@
 import api from './api';
 
-const CATEGORY_API_URL = '/categories';
+const API_BASE_URL = '/categories';
 
 export const categoryService = {
-  // Get all categories grouped by type with statistics
+  // Get all categories grouped by type
   async getAllCategories() {
-    const response = await api.get(CATEGORY_API_URL);
+    const response = await api.get(API_BASE_URL);
     return response.data;
   },
 
   // Get categories by specific type
   async getCategoriesByType(type) {
-    const response = await api.get(`${CATEGORY_API_URL}/${type}`);
+    const response = await api.get(`${API_BASE_URL}/${type}`);
     return response.data;
   },
 
-  // Get category suggestions
-  async getCategorySuggestions(type) {
-    const response = await api.get(`${CATEGORY_API_URL}/suggestions/${type}`);
+  // Get all transaction categories (income and expense)
+  async getTransactionCategories() {
+    const response = await api.get(`${API_BASE_URL}/transaction/all`);
     return response.data;
   },
 
   // Create new category
   async createCategory(categoryData) {
-    const response = await api.post(CATEGORY_API_URL, categoryData);
+    const response = await api.post(API_BASE_URL, categoryData);
     return response.data;
   },
 
   // Update category
-  async updateCategory(id, categoryData) {
-    const response = await api.put(`${CATEGORY_API_URL}/${id}`, categoryData);
+  async updateCategory(categoryId, categoryData) {
+    const response = await api.put(`${API_BASE_URL}/${categoryId}`, categoryData);
     return response.data;
   },
 
   // Delete category
-  async deleteCategory(id) {
-    const response = await api.delete(`${CATEGORY_API_URL}/${id}`);
+  async deleteCategory(categoryId) {
+    const response = await api.delete(`${API_BASE_URL}/${categoryId}`);
     return response.data;
   },
 
-  // Validation
-  validateCategory(category) {
+  // Get category suggestions
+  async getCategorySuggestions(type) {
+    const response = await api.get(`${API_BASE_URL}/suggestions/${type}`);
+    return response.data;
+  },
+
+  // Validate category data
+  validateCategory(categoryData) {
     const errors = {};
-    
-    if (!category.name?.trim()) {
+
+    if (!categoryData.name || categoryData.name.trim() === '') {
       errors.name = 'Category name is required';
-    } else if (category.name.length > 100) {
+    } else if (categoryData.name.length > 100) {
       errors.name = 'Category name cannot exceed 100 characters';
     }
-    
-    if (!category.type) {
-      errors.type = 'Category type is required';
-    }
-    
-    if (category.description && category.description.length > 500) {
+
+    if (categoryData.description && categoryData.description.length > 500) {
       errors.description = 'Description cannot exceed 500 characters';
     }
-    
+
+    if (!categoryData.type) {
+      errors.type = 'Category type is required';
+    }
+
     return errors;
   }
 };
 
-// Default category structure
+// Default category object
 export const defaultCategory = {
   name: '',
   type: '',
   description: ''
 };
 
-// Category type configurations (this is just UI configuration, not hardcoded data)
+// Category types configuration
 export const categoryTypes = [
   {
     id: 'employee-role',
     title: 'Employee Departments',
     description: 'Manage job departments in your organization',
-    icon: '👨‍💼',
-    color: '#3B82F6',
+    icon: '👥',
+    color: '#3498db',
+    placeholder: 'e.g., Software Developer',
+    suggestions: ['Software Developer', 'Project Manager', 'UI/UX Designer', 'QA Engineer', 'DevOps Engineer']
   },
   {
     id: 'employee-designation',
     title: 'Designations',
     description: 'Manage hierarchy levels and position titles',
     icon: '📊',
-    color: '#10B981',
+    color: '#9b59b6',
+    placeholder: 'e.g., Senior Manager',
+    suggestions: ['Junior', 'Senior', 'Team Lead', 'Manager', 'Director']
   },
   {
     id: 'transaction-income',
     title: 'Income Categories',
     description: 'Manage categories for income tracking',
     icon: '💰',
-    color: '#F59E0B',
+    color: '#27ae60',
+    placeholder: 'e.g., Project Revenue',
+    suggestions: ['Salary', 'Project Revenue', 'Service Revenue', 'Product Sales', 'Consulting']
   },
   {
     id: 'transaction-expense',
     title: 'Expense Categories',
     description: 'Manage categories for expense tracking',
-    icon: '💰',
-    color: '#F59E0B',
+    icon: '💸',
+    color: '#e74c3c',
+    placeholder: 'e.g., Office Supplies',
+    suggestions: ['Office Rent', 'Software Licenses', 'Marketing', 'Travel', 'Equipment']
   }
 ];

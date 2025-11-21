@@ -1,6 +1,6 @@
 import Transaction from '../models/Transaction.js';
-import ExcelJS from 'exceljs'; 
-
+import ExcelJS from 'exceljs';
+ 
 //download transaction as excel
 export const downloadExcel = async (req, res) => {
   try {
@@ -405,19 +405,19 @@ export const downloadExcel = async (req, res) => {
     });
   }
 };
-
+ 
 // Create new transaction with file upload
 export const addTransaction = async (req, res) => {
   try {
     const { description, amount, type, category, remarks } = req.body;
-
+ 
      // Validate required fields
     if (!description || !amount || !type || !category) {
-      return res.status(400).json({ 
-        message: 'Description, amount, type, and category are required' 
+      return res.status(400).json({
+        message: 'Description, amount, type, and category are required'
       });
     }
-
+ 
     let attachment = null;
      if (req.file) {
       // Validate file type
@@ -436,14 +436,14 @@ export const addTransaction = async (req, res) => {
           message: "Invalid file type. Supported formats: PDF, JPG, PNG, DOC, DOCX, XLSX"
         });
       }
-
+ 
       // Validate file size (5MB max)
       if (req.file.size > 5 * 1024 * 1024) {
         return res.status(400).json({
           message: "File size too large. Maximum size is 5MB."
         });
       }
-
+ 
       attachment = {
         filename: req.file.originalname,
         originalName: req.file.originalname,
@@ -452,7 +452,7 @@ export const addTransaction = async (req, res) => {
         data: req.file.buffer // Store file data in buffer
       };
     }
-
+ 
     const transaction = new Transaction({
       description,
       amount: parseFloat(amount),
@@ -463,65 +463,65 @@ export const addTransaction = async (req, res) => {
       attachment,
       createdBy: req.user?.id || "system"
     });
-
+ 
     await transaction.save();
-
+ 
     res.status(201).json({
       message: 'Transaction added successfully',
       transaction
     });
   } catch (error) {
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ 
-        message: 'Validation error', 
-        errors: Object.values(error.errors).map(e => e.message) 
+      return res.status(400).json({
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(e => e.message)
       });
     }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
+ 
 //Filter section for transaction
-
+ 
 export const filterTransaction =  async (req, res) => {
   try {
     const { type, category, search, page = 1, limit = 10 } = req.query;
-    
+   
     const filter = {
       $or: [
         { createdBy: req.user?.id },
         { createdBy: "system" }
       ]
     };
-    
+   
     if (type) filter.type = type;
     if (category) filter.category = category;
-    
+   
     if (search) {
       filter.$or = [
         { description: { $regex: search, $options: 'i' } },
         { remarks: { $regex: search, $options: 'i' } }
       ];
     }
-
+ 
     const transactions = await Transaction.find(filter)
       .sort({ date: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
-
+ 
     const total = await Transaction.countDocuments(filter);
-
+ 
     // Calculate totals
     const incomeTotal = await Transaction.aggregate([
       { $match: { ...filter, type: 'Income' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-
+ 
     const expenseTotal = await Transaction.aggregate([
       { $match: { ...filter, type: 'Expense' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-
+ 
     res.json({
       transactions,
       totalPages: Math.ceil(total / limit),
@@ -536,9 +536,9 @@ export const filterTransaction =  async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
+ 
 // Get single transaction
-
+ 
 export const getSingleTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOne({
@@ -548,19 +548,19 @@ export const getSingleTransaction = async (req, res) => {
         { createdBy: "system" }
       ]
     });
-
+ 
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
-
+ 
     res.json(transaction);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
+ 
 // Download attachment
-
+ 
 export const downloadAttachment = async (req, res) => {
   try {
     const transaction = await Transaction.findOne({
@@ -570,51 +570,51 @@ export const downloadAttachment = async (req, res) => {
         { createdBy: "system" }
       ]
     });
-
+ 
     if (!transaction || !transaction.attachment) {
       return res.status(404).json({ message: 'Attachment not found' });
     }
-
+ 
     // Set headers for file download
     res.setHeader('Content-Type', transaction.attachment.mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${transaction.attachment.originalName}"`);
-    
+   
     // Send the file buffer
     res.send(transaction.attachment.data);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
+ 
 //Update transaction
-
+ 
 export const updateTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOneAndUpdate(
-      { _id: req.params.id, 
+      { _id: req.params.id,
         createdBy: req.user.id },
       req.body,
       { new: true, runValidators: true }
     );
-
+ 
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
-
+ 
     res.json({ message: 'Transaction updated successfully', transaction });
   } catch (error) {
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ 
-        message: 'Validation error', 
-        errors: Object.values(error.errors).map(e => e.message) 
+      return res.status(400).json({
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(e => e.message)
       });
     }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
+ 
 //delete transaction
-
+ 
 export const deleteTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOneAndDelete({
@@ -624,37 +624,37 @@ export const deleteTransaction = async (req, res) => {
         { createdBy: "system" }
       ]
     });
-
+ 
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found or you do not have permission to delete this transaction' });
     }
-
+ 
     res.json({ message: 'Transaction deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
-
+ 
+ 
 //get transaction statistics
-
+ 
 export const getTransactionStats =  async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const filter = { 
+    const filter = {
       $or: [
         { createdBy: req.user?.id },
         { createdBy: "system" }
       ]
-    }; 
-
+    };
+ 
     if (startDate && endDate) {
       filter.date = {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       };
     }
-
+ 
     const stats = await Transaction.aggregate([
       { $match: filter },
       {
@@ -665,10 +665,10 @@ export const getTransactionStats =  async (req, res) => {
         }
       }
     ]);
-
+ 
     const income = stats.find(s => s._id === 'Income')?.total || 0;
     const expenses = stats.find(s => s._id === 'Expense')?.total || 0;
-
+ 
     res.json({
       totalIncome: income,
       totalExpenses: expenses,
@@ -679,12 +679,12 @@ export const getTransactionStats =  async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
+ 
 // Get all transactions (for the merged controller compatibility)
 export const getTransactions = async (req, res) => {
   try {
     const { type, category, search } = req.query;
-    
+   
     // Build filter object
     const filters = {
       $or: [
@@ -692,7 +692,7 @@ export const getTransactions = async (req, res) => {
         { createdBy: "system" }
       ]
     };
-    
+   
     if (type) filters.type = type;
     if (category) filters.category = category;
     if (search) {
@@ -701,17 +701,17 @@ export const getTransactions = async (req, res) => {
         { remarks: { $regex: search, $options: 'i' } }
       ];
     }
-
+ 
     const transactions = await Transaction.find(filters)
       .sort({ date: -1, createdAt: -1 });
-
+ 
     // Calculate totals
     const totals = {
       income: 0,
       expenses: 0,
       net: 0
     };
-
+ 
     transactions.forEach(transaction => {
       if (transaction.type === 'Income') {
         totals.income += transaction.amount;
@@ -719,14 +719,14 @@ export const getTransactions = async (req, res) => {
         totals.expenses += transaction.amount;
       }
     });
-
+ 
     totals.net = totals.income - totals.expenses;
-
+ 
     res.json({
       transactions,
       totals
     });
-
+ 
   } catch (error) {
     console.error("Error fetching transactions:", error);
     res.status(500).json({ message: "Error fetching transactions", error: error.message });

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-
+ 
 const transactionSchema = new mongoose.Schema({
   description: {
     type: String,
@@ -19,15 +19,6 @@ const transactionSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Category is required'],
-    enum: [
-      'Salary',
-      'Project Revenue',
-      'Operations',
-      'Equipment',
-      'Service Revenue',
-      'Marketing',
-      'Product Revenue'
-    ]
   },
   remarks: {
     type: String,
@@ -51,12 +42,12 @@ const transactionSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
-
+ 
 // Index for better query performance
 transactionSchema.index({ type: 1, date: -1 });
 transactionSchema.index({ category: 1 });
 transactionSchema.index({ createdBy: 1, date: -1 });
-
+ 
 const Transaction = mongoose.model('Transaction', transactionSchema);
-
+ 
 export default Transaction;

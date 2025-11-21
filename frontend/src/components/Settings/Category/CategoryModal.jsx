@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { categoryService, defaultCategory } from '../../../services/categoryService';
 import './CategoryModal.css';
-
+ 
 const CategoryModal = ({
   isOpen,
   onClose,
@@ -20,22 +20,23 @@ const CategoryModal = ({
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [editDescription, setEditDescription] = useState('');
-
+ 
   if (!isOpen) return null;
-
+ 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+   
+    // Validate category data
     const validationErrors = categoryService.validateCategory(newCategory);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-
+ 
     try {
       setLoading(true);
       const result = await categoryService.createCategory(newCategory);
-      
+     
       if (result.success) {
         setNewCategory({ ...defaultCategory, type: typeConfig.id });
         setShowForm(false);
@@ -44,38 +45,54 @@ const CategoryModal = ({
       }
     } catch (error) {
       console.error('Error creating category:', error);
-      setErrors({ submit: error.response?.data?.message || 'Error creating category' });
+      setErrors({
+        submit: error.response?.data?.message || error.message || 'Error creating category'
+      });
     } finally {
       setLoading(false);
     }
   };
-
+ 
   const handleInputChange = (field, value) => {
     setNewCategory(prev => ({
       ...prev,
       [field]: value
     }));
+    // Clear field error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
         [field]: ''
       }));
     }
+    // Clear submit error when user makes any change
+    if (errors.submit) {
+      setErrors(prev => ({
+        ...prev,
+        submit: ''
+      }));
+    }
   };
-
+ 
   const handleEdit = (category) => {
     setEditingId(category._id);
     setEditValue(category.name);
     setEditDescription(category.description || '');
   };
-
+ 
   const handleSaveEdit = async (categoryId) => {
     try {
+      // Validate edit data
+      if (!editValue.trim()) {
+        alert('Category name is required');
+        return;
+      }
+ 
       const result = await categoryService.updateCategory(categoryId, {
         name: editValue,
         description: editDescription
       });
-
+ 
       if (result.success) {
         setEditingId(null);
         setEditValue('');
@@ -84,15 +101,16 @@ const CategoryModal = ({
       }
     } catch (error) {
       console.error('Error updating category:', error);
+      alert('Error updating category: ' + (error.response?.data?.message || error.message));
     }
   };
-
+ 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditValue('');
     setEditDescription('');
   };
-
+ 
   const handleDelete = async (categoryId) => {
     if (window.confirm('Are you sure you want to delete this category?')) {
       try {
@@ -106,14 +124,14 @@ const CategoryModal = ({
       }
     }
   };
-
+ 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-
+ 
   const suggestions = typeConfig.suggestions || [];
-
+ 
   // SVG Icons
   const EditIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -121,7 +139,7 @@ const CategoryModal = ({
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
     </svg>
   );
-
+ 
   const DeleteIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M3 6h18"/>
@@ -130,7 +148,7 @@ const CategoryModal = ({
       <path d="M14 11v6"/>
     </svg>
   );
-
+ 
   const SaveIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -138,21 +156,21 @@ const CategoryModal = ({
       <polyline points="7 3 7 8 15 8"/>
     </svg>
   );
-
+ 
   const CancelIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <line x1="18" y1="6" x2="6" y2="18"/>
       <line x1="6" y1="6" x2="18" y2="18"/>
     </svg>
   );
-
+ 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content table-modal" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="modal-header">
           <div className="modal-title-section">
-            <div 
+            <div
               className="modal-icon"
               style={{ backgroundColor: `${typeConfig.color}20`, color: typeConfig.color }}
             >
@@ -165,7 +183,7 @@ const CategoryModal = ({
           </div>
           <button className="close-button" onClick={onClose}>×</button>
         </div>
-
+ 
         <div className="modal-body">
           {/* Add Category Section */}
           <div className="add-category-section compact-form">
@@ -174,11 +192,12 @@ const CategoryModal = ({
               <button
                 className={`toggle-form-btn ${showForm ? 'active' : ''}`}
                 onClick={() => setShowForm(!showForm)}
+                type="button"
               >
                 {showForm ? '−' : '+'}
               </button>
             </div>
-
+ 
             {showForm && (
               <form className="category-form" onSubmit={handleSubmit}>
                 <div className="form-row">
@@ -191,10 +210,11 @@ const CategoryModal = ({
                       onChange={(e) => handleInputChange('name', e.target.value)}
                       placeholder={typeConfig.placeholder || "e.g., Software Developer"}
                       className={errors.name ? 'error' : ''}
+                      disabled={loading}
                     />
                     {errors.name && <span className="error-message">{errors.name}</span>}
                   </div>
-                  
+                 
                   <div className="form-group compact-field">
                     <label htmlFor="categoryDescription">Description (Optional)</label>
                     <input
@@ -204,11 +224,12 @@ const CategoryModal = ({
                       onChange={(e) => handleInputChange('description', e.target.value)}
                       placeholder="Enter a brief description..."
                       className={errors.description ? 'error' : ''}
+                      disabled={loading}
                     />
                     {errors.description && <span className="error-message">{errors.description}</span>}
                   </div>
                 </div>
-
+ 
                 {/* Quick Suggestions */}
                 {suggestions.length > 0 && newCategory.name.length === 0 && (
                   <div className="suggestions">
@@ -220,6 +241,7 @@ const CategoryModal = ({
                           type="button"
                           className="suggestion-chip"
                           onClick={() => handleInputChange('name', suggestion)}
+                          disabled={loading}
                         >
                           {suggestion}
                         </button>
@@ -227,7 +249,7 @@ const CategoryModal = ({
                     </div>
                   </div>
                 )}
-
+ 
                 <div className="form-actions">
                   <button
                     type="submit"
@@ -241,26 +263,25 @@ const CategoryModal = ({
                     className="cancel-btn"
                     onClick={() => {
                       setShowForm(false);
-                      handleInputChange('name', '');
-                      handleInputChange('description', '');
+                      setNewCategory({ ...defaultCategory, type: typeConfig.id });
                       setErrors({});
                     }}
+                    disabled={loading}
                   >
                     Cancel
                   </button>
                 </div>
-
+ 
                 {errors.submit && (
                   <div className="submit-error">{errors.submit}</div>
                 )}
               </form>
             )}
           </div>
-
+ 
           {/* Categories Table Section */}
           <div className="categories-table-section">
             <div className="table-header">
-              
               <div className="search-box">
                 <span className="search-icon">🔍</span>
                 <input
@@ -271,7 +292,7 @@ const CategoryModal = ({
                 />
               </div>
             </div>
-
+ 
             {filteredCategories.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon">📝</div>
@@ -385,5 +406,5 @@ const CategoryModal = ({
     </div>
   );
 };
-
+ 
 export default CategoryModal;

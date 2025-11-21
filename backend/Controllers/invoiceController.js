@@ -6,6 +6,7 @@ import Invoice from '../models/Invoice.js'
 import Company from '../models/Company.js';
 import Transaction from '../models/Transaction.js';
 import pkg from "number-to-words";
+import axios from "axios";
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';

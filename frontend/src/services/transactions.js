@@ -107,12 +107,3 @@ export const transactionService = {
 
 // Export constants for use in components
 export const typeOptions = ['Income', 'Expense'];
-export const categoryOptions = [
-  'Salary',
-  'Project Revenue',
-  'Operations',
-  'Equipment',
-  'Service Revenue',
-  'Marketing',
-  'Product Revenue',
-];
