@@ -175,7 +175,7 @@
   cursor: not-allowed;
   border-color: #d1d5db;
 }
-
+ 
 .forms-group select.disabled {
   background-color: #f9fafb;
   color: #6b7280;
@@ -333,12 +333,12 @@
   font-size: 13px;
 }
  
-
+ 
 /* Phone Input Styles for Company Settings */
 .phone-input-container {
   width: 100%;
 }
-
+ 
 .customs-phone-input {
   padding: 14px 16px;
   padding-top: 14px !important;
@@ -351,14 +351,14 @@
   width: 100%;
   max-width: 266.74px !important;
 }
-
+ 
 .customs-phone-input:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   background-color: #f8fafc;
 }
-
+ 
 .customs-phone-input.disabled {
   background-color: #f9fafb;
   color: #6b7280;
@@ -367,12 +367,12 @@
   padding-top: 14px;
   padding-bottom: 14px;
 }
-
+ 
 .customs-phone-input.error {
   border-color: #ef4444;
   background-color: #fef2f2;
 }
-
+ 
 /* Style the PhoneInput component */
 .PhoneInput {
   width: 100%;
@@ -384,26 +384,26 @@
   background-color: white;
   transition: all 0.3s ease;
 }
-
+ 
 .PhoneInput:focus-within {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   background-color: #f8fafc;
 }
-
+ 
 .PhoneInput--disabled {
   background-color: #f9fafb !important;
   color: #6b7280 !important;
   cursor: not-allowed !important;
   border-color: #d1d5db !important;
 }
-
+ 
 .PhoneInput--error {
   border-color: #ef4444 !important;
   background-color: #fef2f2 !important;
 }
-
+ 
 .PhoneInputInput {
   border: none !important;
   outline: none !important;
@@ -414,26 +414,26 @@
   flex: 1;
   width: 100% !important;
 }
-
+ 
 .PhoneInputInput:focus {
   box-shadow: none !important;
   border: none !important;
   outline: none !important;
 }
-
+ 
 .PhoneInputInput:disabled {
   background: transparent !important;
   color: #6b7280 !important;
   cursor: not-allowed !important;
 }
-
+ 
 .PhoneInputCountry {
   margin-right: 8px !important;
   display: flex;
   align-items: center;
   gap: 4px;
 }
-
+ 
 .PhoneInputCountrySelect {
   position: absolute !important;
   top: 0;
@@ -445,7 +445,7 @@
   opacity: 0;
   cursor: pointer;
 }
-
+ 
 /* FIX: Hide country select when disabled */
 .PhoneInputCountrySelect:disabled {
   display: none !important;
@@ -453,24 +453,24 @@
   pointer-events: none !important;
   opacity: 0 !important;
 }
-
+ 
 /* Hide the entire country selector when disabled */
 .PhoneInput--disabled .PhoneInputCountry {
   display: none !important;
 }
-
+ 
 .PhoneInputCountryIcon {
   width: 20px !important;
   height: 15px !important;
   box-shadow: none !important;
 }
-
+ 
 .PhoneInputCountryIconImg {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
 }
-
+ 
 .PhoneInputCountrySelectArrow {
   display: inline-block;
   content: '';
@@ -482,21 +482,130 @@
   margin-left: 4px;
   opacity: 1;
 }
-
+ 
 /* Hide dropdown arrow when disabled */
 .PhoneInput--disabled .PhoneInputCountrySelectArrow {
   display: none !important;
 }
-
+ 
 /* Form group adjustments for phone input */
 .forms-group .phone-input-container {
   margin-top: 0;
 }
-
+ 
 .forms-group .phone-input-container .PhoneInput {
   font-family: inherit;
 }
-
+ 
+.image-upload-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+ 
+.image-upload-group {
+  display: flex;
+  flex-direction: column;
+}
+ 
+.image-upload-group label {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #374151;
+}
+ 
+.image-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+ 
+.image-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+ 
+.image-preview img {
+  max-width: 150px;
+  max-height: 100px;
+  border: 2px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 4px;
+  background: white;
+}
+ 
+.delete-image-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+ 
+.delete-image-btn:hover:not(:disabled) {
+  background: #dc2626;
+}
+ 
+.delete-image-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+ 
+.image-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+ 
+.upload-btn {
+  background: #3b82f6;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+ 
+.upload-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+ 
+.upload-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+ 
+.image-upload-placeholder small {
+  color: #64748b;
+  font-size: 12px;
+}
+ 
+.preview-item.full-width {
+  grid-column: 1 / -1;
+}
+ 
+.preview-image img {
+  max-width: 200px;
+  max-height: 120px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 4px;
+  background: white;
+}
+ 
+ 
 /* Responsive Design */
 @media (max-width: 1200px) {
   .settings-layout {
@@ -552,6 +661,10 @@
     justify-content: center;
     width: 100%;
   }
+ 
+   .image-upload-section {
+    grid-template-columns: 1fr;
+  }
 }
  
 @media (max-width: 480px) {
@@ -585,7 +698,7 @@
   .preview-content {
     padding: 20px;
   }
-
+ 
   .PhoneInput {
     padding: 10px 12px;
   }
@@ -638,3 +751,4 @@
 .save-message {
   animation: slideDown 0.3s ease-out;
 }
+ 

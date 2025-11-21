@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
-
+ 
 const companySchema = new mongoose.Schema({
   companyName: {
     type: String,
@@ -13,8 +13,8 @@ const companySchema = new mongoose.Schema({
     required: [true, 'Company address is required'],
     trim: true
   },
-  phone: { 
-    type: String, 
+  phone: {
+    type: String,
     trim: true,
     validate: {
       validator: function (phone) {
@@ -63,11 +63,20 @@ const companySchema = new mongoose.Schema({
       'July', 'August', 'September', 'October', 'November', 'December'
     ],
     default: 'January'
+  },
+    // Add these new fields for logo and signature
+  logo: {
+    public_id: { type: String, default: '' },
+    url: { type: String, default: '' }
+  },
+  signature: {
+    public_id: { type: String, default: '' },
+    url: { type: String, default: '' }
   }
 }, {
   timestamps: true
 });
-
+ 
 companySchema.statics.getCompany = async function () {
   let company = await this.findOne();
   if (!company) {
@@ -75,6 +84,7 @@ companySchema.statics.getCompany = async function () {
   }
   return company;
 };
-
+ 
 const Company = mongoose.model("Company", companySchema);
 export default Company;
+ 

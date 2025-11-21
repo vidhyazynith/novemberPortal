@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  companyService, 
-  defaultCompanyInfo, 
-  currencyOptions, 
-  fiscalYearOptions 
+import {
+  companyService,
+  defaultCompanyInfo,
+  currencyOptions,
+  fiscalYearOptions
 } from '../../../services/company';
 import './CompanySettings.css';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { isValidPhoneNumber } from 'react-phone-number-input';
-
+ 
 const CompanySettings = () => {
   const [companyInfo, setCompanyInfo] = useState(defaultCompanyInfo);
   const [isEditing, setIsEditing] = useState(false);
@@ -17,17 +17,18 @@ const CompanySettings = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
+  const [uploading, setUploading] = useState({ logo: false, signature: false });
+ 
   // Load company info from backend
   useEffect(() => {
     fetchCompanyInfo();
   }, []);
-
+ 
   const fetchCompanyInfo = async () => {
     try {
       setIsLoading(true);
       const result = await companyService.getCompanyInfo();
-      
+     
       if (result.success) {
         setCompanyInfo(result.data);
       } else {
@@ -41,19 +42,80 @@ const CompanySettings = () => {
       setIsLoading(false);
     }
   };
-
+ 
+   const handleImageUpload = async (file, type) => {
+    try {
+      setUploading(prev => ({ ...prev, [type]: true }));
+     
+      const result = await companyService.uploadImage(file, type);
+     
+      if (result.success) {
+        setCompanyInfo(result.data);
+        setSaveMessage(`${type.charAt(0).toUpperCase() + type.slice(1)} uploaded successfully!`);
+        setTimeout(() => setSaveMessage(''), 3000);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error(`Error uploading ${type}:`, error);
+      setSaveMessage(`Error uploading ${type}: ${error.message}`);
+      setTimeout(() => setSaveMessage(''), 3000);
+    } finally {
+      setUploading(prev => ({ ...prev, [type]: false }));
+    }
+  };
+ 
+    const handleImageDelete = async (type) => {
+    try {
+      const result = await companyService.deleteImage(type);
+     
+      if (result.success) {
+        setCompanyInfo(result.data);
+        setSaveMessage(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully!`);
+        setTimeout(() => setSaveMessage(''), 3000);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error(`Error deleting ${type}:`, error);
+      setSaveMessage(`Error deleting ${type}: ${error.message}`);
+      setTimeout(() => setSaveMessage(''), 3000);
+    }
+  };
+ 
+    const handleFileChange = (e, type) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setSaveMessage('Please select a valid image file');
+        setTimeout(() => setSaveMessage(''), 3000);
+        return;
+      }
+ 
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setSaveMessage('Image size should be less than 5MB');
+        setTimeout(() => setSaveMessage(''), 3000);
+        return;
+      }
+ 
+      handleImageUpload(file, type);
+    }
+  };
+ 
   const validateForm = () => {
     const newErrors = companyService.validateCompanyData(companyInfo);
-    
+   
     // Add phone validation
     if (companyInfo.phone && !isValidPhoneNumber(companyInfo.phone)) {
       newErrors.phone = 'Please enter a valid phone number for the selected country';
     }
-    
+   
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
+ 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setCompanyInfo(prev => ({
@@ -69,14 +131,14 @@ const CompanySettings = () => {
       }));
     }
   };
-
+ 
   // Handle phone number change
   const handlePhoneChange = (value) => {
     setCompanyInfo(prev => ({
       ...prev,
       phone: value
     }));
-    
+   
     // Clear phone error when user starts typing
     if (errors.phone) {
       setErrors(prev => ({
@@ -85,7 +147,7 @@ const CompanySettings = () => {
       }));
     }
   };
-
+ 
   const handleSave = async () => {
     if (!validateForm()) {
       return;
@@ -94,12 +156,12 @@ const CompanySettings = () => {
     try {
       setIsSaving(true);
       const result = await companyService.updateCompanyInfo(companyInfo);
-
+ 
       if (result.success) {
         setIsEditing(false);
         setSaveMessage('Company information saved successfully!');
         setTimeout(() => setSaveMessage(''), 3000);
-        
+       
         // Update local state with the saved data from server
         setCompanyInfo(result.data);
       } else {
@@ -113,14 +175,14 @@ const CompanySettings = () => {
       setIsSaving(false);
     }
   };
-
+ 
   const handleCancel = () => {
     fetchCompanyInfo(); // Reload original data from server
     setIsEditing(false);
     setErrors({});
     setSaveMessage('');
   };
-
+ 
   if (isLoading) {
     return (
       <div className="company-settings">
@@ -132,7 +194,7 @@ const CompanySettings = () => {
       </div>
     );
   }
-
+ 
   return (
     <div className="company-settings">
       {saveMessage && (
@@ -140,7 +202,7 @@ const CompanySettings = () => {
           {saveMessage}
         </div>
       )}
-
+ 
       <div className="settings-layout">
         {/* Left Side - Form */}
         <div className="forms-section">
@@ -157,7 +219,78 @@ const CompanySettings = () => {
                 </button>
               )}
             </div>
-
+ 
+                        {/* Add Image Upload Sections */}
+            <div className="image-upload-section">
+              <div className="image-upload-group">
+                <label>Company Logo</label>
+                <div className="image-upload-container">
+                  {companyInfo.logo?.url ? (
+                    <div className="image-preview">
+                      <img src={companyInfo.logo.url} alt="Company Logo" />
+                      <button
+                        type="button"
+                        className="delete-image-btn"
+                        onClick={() => handleImageDelete('logo')}
+                        disabled={uploading.logo}
+                      >
+                        {uploading.logo ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="image-upload-placeholder">
+                      <input
+                        type="file"
+                        id="logo-upload"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'logo')}
+                        disabled={uploading.logo}
+                        style={{ display: 'none' }}
+                      />
+                      <label htmlFor="logo-upload" className="upload-btn">
+                        {uploading.logo ? 'Uploading...' : 'Upload Logo'}
+                      </label>
+                      <small>Recommended: 300x300px, PNG or JPG</small>
+                    </div>
+                  )}
+                </div>
+              </div>
+ 
+              <div className="image-upload-group">
+                <label>Authorized Signature</label>
+                <div className="image-upload-container">
+                  {companyInfo.signature?.url ? (
+                    <div className="image-preview">
+                      <img src={companyInfo.signature.url} alt="Authorized Signature" />
+                      <button
+                        type="button"
+                        className="delete-image-btn"
+                        onClick={() => handleImageDelete('signature')}
+                        disabled={uploading.signature}
+                      >
+                        {uploading.signature ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="image-upload-placeholder">
+                      <input
+                        type="file"
+                        id="signature-upload"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'signature')}
+                        disabled={uploading.signature}
+                        style={{ display: 'none' }}
+                      />
+                      <label htmlFor="signature-upload" className="upload-btn">
+                        {uploading.signature ? 'Uploading...' : 'Upload Signature'}
+                      </label>
+                      <small>Recommended: 200x100px, PNG with transparent background</small>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+ 
             <div className="forms-grid">
               <div className="forms-group full-width">
                 <label htmlFor="companyName">Company Name</label>
@@ -172,7 +305,7 @@ const CompanySettings = () => {
                   placeholder="Enter company name"
                 />
               </div>
-
+ 
               <div className="forms-group full-width">
                 <label htmlFor="address" className="required">
                   Company Address
@@ -189,7 +322,7 @@ const CompanySettings = () => {
                 />
                 {errors.address && <span className="error-message">{errors.address}</span>}
               </div>
-
+ 
               <div className="forms-group">
                 <label htmlFor="phone">Phone Number</label>
                 <div className="phone-input-container">
@@ -209,7 +342,7 @@ const CompanySettings = () => {
                   Select country code and enter phone number
                 </small>
               </div>
-
+ 
               <div className="forms-group">
                 <label htmlFor="email">Email Address</label>
                 <input
@@ -224,7 +357,7 @@ const CompanySettings = () => {
                 />
                 {errors.email && <span className="error-message">{errors.email}</span>}
               </div>
-
+ 
               <div className="forms-group">
                 <label htmlFor="website">Website</label>
                 <input
@@ -238,7 +371,7 @@ const CompanySettings = () => {
                   placeholder="https://www.company.com"
                 />
               </div>
-
+ 
               <div className="forms-group">
                 <label htmlFor="taxId">Tax ID / VAT Number</label>
                 <input
@@ -252,7 +385,7 @@ const CompanySettings = () => {
                   placeholder="TAX-123456789"
                 />
               </div>
-
+ 
               <div className="forms-group">
                 <label htmlFor="currency">Default Currency</label>
                 <select
@@ -270,7 +403,7 @@ const CompanySettings = () => {
                   ))}
                 </select>
               </div>
-
+ 
               <div className="forms-group">
                 <label htmlFor="fiscalYear">Fiscal Year Start</label>
                 <select
@@ -289,19 +422,19 @@ const CompanySettings = () => {
                 </select>
               </div>
             </div>
-
+ 
             {isEditing && (
               <div className="action-buttons">
-                <button 
-                  className="save-btn" 
+                <button
+                  className="save-btn"
                   onClick={handleSave}
                   disabled={isSaving}
                 >
                   <span className="save-icon">💾</span>
                   {isSaving ? 'Saving...' : 'Save Changes'}
                 </button>
-                <button 
-                  className="cancel-btn" 
+                <button
+                  className="cancel-btn"
                   onClick={handleCancel}
                   disabled={isSaving}
                 >
@@ -311,7 +444,7 @@ const CompanySettings = () => {
             )}
           </div>
         </div>
-
+ 
         {/* Right Side - Preview */}
         <div className="preview-section">
           <div className="preview-card">
@@ -320,6 +453,26 @@ const CompanySettings = () => {
               <div className="preview-badge">Live Preview</div>
             </div>
             <div className="preview-content">
+ 
+              {companyInfo.logo?.url && (
+                <div className="preview-item full-width">
+                  <span className="preview-label">Company Logo:</span>
+                  <div className="preview-image">
+                    <img src={companyInfo.logo.url} alt="Company Logo Preview" />
+                  </div>
+                </div>
+              )}
+ 
+            {/* Signature Preview */}
+              {companyInfo.signature?.url && (
+                <div className="preview-item full-width">
+                  <span className="preview-label">Signature:</span>
+                  <div className="preview-image">
+                    <img src={companyInfo.signature.url} alt="Signature Preview" />
+                  </div>
+                </div>
+              )}
+ 
               <div className="preview-item">
                 <span className="preview-label">Company Name:</span>
                 <span className="preview-value">{companyInfo.companyName || <span className="missing-info">Not provided</span>}</span>
@@ -376,5 +529,6 @@ const CompanySettings = () => {
     </div>
   );
 };
-
+ 
 export default CompanySettings;
+ 
