@@ -381,7 +381,7 @@
 }
  
 .customers-table td {
-  padding: 1px 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid #e2e8f0;
   font-size: 14px;
   vertical-align: middle;
@@ -690,7 +690,6 @@
   background: #dc2626 !important;
   color: white !important;
   border: 1px solid #dc2626 !important;
-  margin-bottom: 20px;
 }
  
 .deactivates-btn:hover {
@@ -820,6 +819,7 @@
   cursor: pointer;
   transition: all 0.3s;
   white-space: nowrap;
+  margin-bottom: 0px !important;
 }
  
 .activate-btn:hover {
@@ -1229,7 +1229,6 @@
   background: #dc2626 !important;
   color: white !important;
   border: 1px solid #dc2626 !important;
-  margin-bottom: 20px;
 }
 
 .deactivate-btn:hover {

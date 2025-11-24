@@ -1865,6 +1865,215 @@
   margin: 0;
 }
 
+
+/* Enhanced Hike History Styles */
+.hike-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hike-filter-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.hike-filter-controls .filter-select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+}
+
+.view-all-hikes-btn,
+.view-latest-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.view-all-hikes-btn:hover,
+.view-latest-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.latest-hike-banner {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border: 1px solid #10b981;
+  border-radius: 6px;
+  padding: 8px 16px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.banner-text {
+  color: #065f46;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hike-results-info {
+  background: #f3f4f6;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.hike-history-container {
+  margin-top: 8px;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.history-table th {
+  background: #f8fafc;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.history-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.history-table tr:last-child td {
+  border-bottom: none;
+}
+
+.history-table tr:hover {
+  background: #f9fafb;
+}
+
+.history-table tr.latest-hike {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-left: 3px solid #0ea5e9;
+}
+
+.hike-period {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hike-month {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.hike-year {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.hike-percentage-badge {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hike-amount {
+  color: #059669;
+  font-weight: 600;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 20px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.no-hike-history {
+  text-align: center;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #d1d5db;
+}
+
+.no-hike-history p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Responsive design for hike history */
+@media (max-width: 768px) {
+  .hike-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .hike-filter-controls {
+    justify-content: space-between;
+  }
+  
+  .history-table {
+    font-size: 12px;
+  }
+  
+  .history-table th,
+  .history-table td {
+    padding: 8px 12px;
+  }
+  
+  .hike-period {
+    min-width: 80px;
+  }
+}
+
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .history-header {

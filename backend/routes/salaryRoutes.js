@@ -762,4 +762,135 @@ router.delete('/payslip/:id', authenticateToken, requireRole('admin'), async (re
   }
 });
 
+
+// Get hike history for an employee
+router.get('/employee/:employeeId/hike-history', authenticateToken, async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { month, year, latest } = req.query;
+
+    // Build query for salaries with applied hikes
+    let query = {
+      employeeId,
+      'hike.applied': true
+    };
+
+    let sortOrder = { 'hike.startDate': -1 };
+    let limit = null;
+
+    // If latest flag is true, return only the most recent hike
+    if (latest === 'true') {
+      limit = 1;
+    }
+    // If month/year filters are provided, show hikes for that period
+    else if (month && year) {
+      query.month = month;
+      query.year = parseInt(year);
+    } else if (month) {
+      query.month = month;
+    } else if (year) {
+      query.year = parseInt(year);
+    }
+    // If no filters and not latest, return all hikes sorted by date
+    // (this case might not be used with the new frontend logic)
+
+    let hikeHistory = await Salary.find(query)
+      .select('month year basicSalary hike.startDate hike.hikePercent hike.previousbasicSalary createdAt')
+      .sort(sortOrder)
+      .limit(limit);
+
+    // Transform data to show hike details
+    const formattedHistory = hikeHistory.map(salary => ({
+      _id: salary._id,
+      month: salary.month,
+      year: salary.year,
+      hikePercentage: salary.hike.hikePercent,
+      hikeStartDate: salary.hike.startDate,
+      previousBasicSalary: salary.hike.previousbasicSalary,
+      newBasicSalary: salary.basicSalary,
+      hikeAmount: salary.basicSalary - (salary.hike.previousbasicSalary || 0),
+      appliedAt: salary.createdAt
+    }));
+
+    res.json({ 
+      hikeHistory: formattedHistory,
+      isLatest: latest === 'true',
+      hasFilters: !!(month || year)
+    });
+  } catch (error) {
+    console.error('Error fetching hike history:', error);
+    res.status(500).json({ message: 'Server error while fetching hike history' });
+  }
+});
+// Get hike history for an employee
+// router.get('/employee/:employeeId/hike-history', authenticateToken, async (req, res) => {
+//   try {
+//     const { employeeId } = req.params;
+//     const { month, year, latest } = req.query;
+
+//     console.log(`Fetching hike history for ${employeeId}`, { month, year, latest });
+
+//     // Build query for salaries with applied hikes
+//     let query = {
+//       employeeId,
+//       'hike.applied': true
+//     };
+
+//     let sortOrder = { 'hike.startDate': -1 };
+//     let limit = null;
+
+//     // If latest flag is true, return only the most recent hike
+//     if (latest === 'true') {
+//       limit = 1;
+//       console.log('Fetching latest hike only');
+//     }
+//     // If specific month/year filters are provided
+//     else if (month && year) {
+//       query.month = month;
+//       query.year = parseInt(year);
+//       console.log(`Filtering by month: ${month}, year: ${year}`);
+//     } else if (month) {
+//       query.month = month;
+//       console.log(`Filtering by month: ${month}`);
+//     } else if (year) {
+//       query.year = parseInt(year);
+//       console.log(`Filtering by year: ${year}`);
+//     }
+//     // No filters - get all hikes sorted by date (newest first)
+//     else {
+//       console.log('No filters - fetching all hikes');
+//     }
+
+//     const hikeHistory = await Salary.find(query)
+//       .select('month year basicSalary hike.startDate hike.hikePercent hike.previousbasicSalary createdAt')
+//       .sort(sortOrder)
+//       .limit(limit);
+
+//     console.log(`Found ${hikeHistory.length} hike records`);
+
+//     // Transform data to show hike details
+//     const formattedHistory = hikeHistory.map(salary => ({
+//       _id: salary._id,
+//       month: salary.month,
+//       year: salary.year,
+//       hikePercentage: salary.hike.hikePercent,
+//       hikeStartDate: salary.hike.startDate,
+//       previousBasicSalary: salary.hike.previousbasicSalary,
+//       newBasicSalary: salary.basicSalary,
+//       hikeAmount: salary.basicSalary - (salary.hike.previousbasicSalary || 0),
+//       appliedAt: salary.createdAt
+//     }));
+
+//     res.json({ 
+//       hikeHistory: formattedHistory,
+//       isLatest: latest === 'true',
+//       hasFilters: !!(month || year),
+//       filters: { month, year }
+//     });
+//   } catch (error) {
+//     console.error('Error fetching hike history:', error);
+//     res.status(500).json({ message: 'Server error while fetching hike history' });
+//   }
+// });
+
 export default router;

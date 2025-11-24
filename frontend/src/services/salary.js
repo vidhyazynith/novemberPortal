@@ -163,5 +163,30 @@ export const salaryService = {
       console.error('Error applying hike:', error);
       throw error;
     }
+  },
+
+  // Get hike history for employee
+async getHikeHistory(employeeId, filters = {}) {
+  try {
+    const params = new URLSearchParams();
+    
+    // Add filters - if no filters, get latest hike
+    if (filters.latest) {
+      params.append('latest', 'true');
+    } else {
+      if (filters.month) params.append('month', filters.month);
+      if (filters.year) params.append('year', filters.year);
+    }
+    
+    const queryString = params.toString();
+    const url = `/salaries/employee/${employeeId}/hike-history${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await api.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching hike history:', error);
+    throw error;
   }
+}
+
 };

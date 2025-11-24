@@ -32,6 +32,26 @@ const SalaryManagement = () => {
 const [selectedFilterMonth, setSelectedFilterMonth] = useState('');
 const [selectedFilterYear, setSelectedFilterYear] = useState('');
 const [isAmountVisible, setIsAmountVisible] = useState(false);
+
+// State variables
+const [hikeHistory, setHikeHistory] = useState([]);
+const [hikeHistoryLoading, setHikeHistoryLoading] = useState(false);
+const [hikeFilterMonth, setHikeFilterMonth] = useState('');
+const [hikeFilterYear, setHikeFilterYear] = useState('');
+const [showAllHikes, setShowAllHikes] = useState(false); // To toggle between latest and all
+
+// // Debounce utility function
+// const debounce = (func, wait) => {
+//   let timeout;
+//   return function executedFunction(...args) {
+//     const later = () => {
+//       clearTimeout(timeout);
+//       func(...args);
+//     };
+//     clearTimeout(timeout);
+//     timeout = setTimeout(later, wait);
+//   };
+// };
  
   const [formData, setFormData] = useState({
     employeeId: '',
@@ -349,11 +369,49 @@ const handleEmployeeSelect = async (employeeId) => {
       const data = await salaryService.getSalaryById(salary._id);
       setSelectedSalaryDetail(data.salary);
       setShowSalaryDetail(true);
+      // Load hike history for this employee
+      // Reset filters and load latest hike
+      setHikeFilterMonth('');
+      setHikeFilterYear('');
+      setShowAllHikes(false);
+      await loadHikeHistory(data.salary.employeeId, true);
+
+    //   // Reset to default state
+    // setHikeFilters({ month: '', year: '' });
+    // setViewMode('latest');
+    // Don't call loadHikeHistory here - the useEffect will handle it
     } catch (error) {
       console.error('Error loading salary details:', error);
       alert('Error loading salary details');
     }
   };
+
+//   // Handle filter changes - FIXED: Optimized filter handling
+// const handleFilterChange = useCallback((newFilters) => {
+//   setHikeFilters(prev => {
+//     const updatedFilters = { ...prev, ...newFilters };
+    
+//     // Determine view mode based on filters
+//     const hasFilters = updatedFilters.month || updatedFilters.year;
+//     setViewMode(hasFilters ? 'all' : 'latest');
+    
+//     return updatedFilters;
+//   });
+// }, []);
+
+// // Clear all filters - FIXED: Instant clear
+// const handleClearFilters = useCallback(() => {
+//   setHikeFilters({ month: '', year: '' });
+//   setViewMode('latest');
+//   // No need to call loadHikeHistory here - the useEffect will trigger it
+// }, []);
+
+// // View all hikes without filters
+// const handleViewAllHikes = useCallback(() => {
+//   setHikeFilters({ month: '', year: '' });
+//   setViewMode('all');
+//   // No need to call loadHikeHistory here - the useEffect will trigger it
+// }, []);
  
   const handleGiveHike = (salary) => {
     setSelectedSalaryDetail(salary);
@@ -399,7 +457,89 @@ const handleEmployeeSelect = async (employeeId) => {
       console.error('Error applying hike:', error);
     }
   };
+
+//   // Debounced filter function to prevent rapid API calls
+// const debouncedLoadHikeHistory = useRef(
+//   debounce(async (employeeId, filters, mode) => {
+//     if (!employeeId) return;
+    
+//     setHikeHistoryLoading(true);
+//     try {
+//       const apiFilters = { ...filters };
+      
+//       if (mode === 'latest') {
+//         apiFilters.latest = true;
+//       }
+//       // If mode is 'all' but no specific filters, we don't add latest flag
+      
+//       console.log('Loading hike history with filters:', apiFilters);
+      
+//       const data = await salaryService.getHikeHistory(selectedSalaryDetail.employeeId, apiFilters);
+//       setHikeHistory(data.hikeHistory || []);
+//     } catch (error) {
+//       console.error('Error loading hike history:', error);
+//       setHikeHistory([]);
+//     } finally {
+//       setHikeHistoryLoading(false);
+//     }
+//   }, 300) // 300ms debounce delay
+// ).current;
+
  
+  const loadHikeHistory = async (employeeId, showLatest = true) => {
+  if (!employeeId) return;
+  
+  setHikeHistoryLoading(true);
+  try {
+    const filters = {};
+    
+    if (showLatest && !hikeFilterMonth && !hikeFilterYear) {
+      // Show only the latest hike when no filters are applied
+      filters.latest = true;
+      setShowAllHikes(false);
+    } else if (hikeFilterMonth || hikeFilterYear) {
+      // Show filtered hikes when month/year filters are applied
+      if (hikeFilterMonth) filters.month = hikeFilterMonth;
+      if (hikeFilterYear) filters.year = hikeFilterYear;
+      setShowAllHikes(true);
+    } else {
+      // Show all hikes when explicitly requested
+      setShowAllHikes(true);
+    }
+    
+    const data = await salaryService.getHikeHistory(employeeId, filters);
+    setHikeHistory(data.hikeHistory || []);
+  } catch (error) {
+    console.error('Error loading hike history:', error);
+    setHikeHistory([]);
+  } finally {
+    setHikeHistoryLoading(false);
+  }
+};
+
+// // Load hike history with current filters and view mode
+// const loadHikeHistory = useCallback((forceLatest = false) => {
+//   if (!selectedSalaryDetail?.employeeId) return;
+  
+//   const currentViewMode = forceLatest ? 'latest' : viewMode;
+//   const currentFilters = forceLatest ? { month: '', year: '' } : hikeFilters;
+  
+//   if (forceLatest) {
+//     setHikeFilters({ month: '', year: '' });
+//     setViewMode('latest');
+//   }
+  
+//   debouncedLoadHikeHistory(selectedSalaryDetail.employeeId, currentFilters, currentViewMode);
+// }, [selectedSalaryDetail?.employeeId, hikeFilters, viewMode, debouncedLoadHikeHistory]);
+
+// // Load hike history when modal opens or filters change
+// useEffect(() => {
+//   if (showSalaryDetail && selectedSalaryDetail?.employeeId) {
+//     loadHikeHistory();
+//   }
+// }, [showSalaryDetail, selectedSalaryDetail?.employeeId, loadHikeHistory]);
+
+
   const checkDuplicateSalary = (employeeId, month, year, excludeSalaryId = null) => {
     return activeSalaries.some(salary =>
       salary.employeeId === employeeId &&
@@ -1072,7 +1212,159 @@ const handleEditSalary = async (salary) => {
                     </div>
                   </div>
                 </div>
- 
+{/* Hike History Section */}
+<div className="detail-section">
+  <div className="section-header">
+    <h4 className="section-title">
+      {showAllHikes ? 'Hike History' : 'Latest Hike'}
+    </h4>
+    <div className="hike-controls">
+      <div className="hike-filter-controls">
+        <select 
+          className="filter-select"
+          value={hikeFilterMonth}
+          onChange={(e) => {
+            setHikeFilterMonth(e.target.value);
+            if (e.target.value || hikeFilterYear) {
+              loadHikeHistory(selectedSalaryDetail.employeeId, false);
+            }
+          }}
+        >
+          <option value="">Select Month</option>
+          {months.map(month => (
+            <option key={month} value={month}>{month}</option>
+          ))}
+        </select>
+        <select 
+          className="filter-select"
+          value={hikeFilterYear}
+          onChange={(e) => {
+            setHikeFilterYear(e.target.value);
+            if (e.target.value || hikeFilterMonth) {
+              loadHikeHistory(selectedSalaryDetail.employeeId, false);
+            }
+          }}
+        >
+          <option value="">Select Year</option>
+          {Array.from({length: currentYear - 2020 + 1}, (_, i) => currentYear - i)
+            .map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))
+          }
+        </select>
+        {(hikeFilterMonth || hikeFilterYear) && (
+          <button 
+            className="clear-filters-btn"
+            onClick={() => {
+              setHikeFilterMonth('');
+              setHikeFilterYear('');
+              loadHikeHistory(selectedSalaryDetail.employeeId, true);
+            }}
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+      
+      {!showAllHikes && hikeHistory.length > 0 && (
+        <button 
+          className="view-all-hikes-btn"
+          onClick={() => {
+            setShowAllHikes(true);
+            loadHikeHistory(selectedSalaryDetail.employeeId, false);
+          }}
+        >
+          View All Hikes
+        </button>
+      )}
+      
+      {showAllHikes && (
+        <button 
+          className="view-latest-btn"
+          onClick={() => {
+            setShowAllHikes(false);
+            setHikeFilterMonth('');
+            setHikeFilterYear('');
+            loadHikeHistory(selectedSalaryDetail.employeeId, true);
+          }}
+        >
+          Show Latest Only
+        </button>
+      )}
+    </div>
+  </div>
+  
+  {hikeHistoryLoading ? (
+    <div className="loading-state">
+      <div className="loading-spinner"></div>
+      Loading hike history...
+    </div>
+  ) : hikeHistory.length > 0 ? (
+    <div className="hike-history-container">
+      {/* {!showAllHikes && hikeHistory.length === 1 && (
+        <div className="latest-hike-banner">
+          <span className="banner-text">Showing Latest Hike</span>
+        </div>
+      )}
+       */}
+      {(showAllHikes || hikeFilterMonth || hikeFilterYear) && hikeHistory.length > 0 && (
+        <div className="hike-results-info">
+          Found {hikeHistory.length} hike{hikeHistory.length !== 1 ? 's' : ''} 
+          {hikeFilterMonth && ` in ${hikeFilterMonth}`}
+          {hikeFilterYear && ` ${hikeFilterYear}`}
+        </div>
+      )}
+      
+      <div className="hike-history-table">
+        <table className="history-table">
+          <thead>
+            <tr>
+              <th>Month/Year</th>
+              <th>Hike %</th>
+              <th>Start Date</th>
+              <th>Previous Basic</th>
+              <th>New Basic</th>
+              <th>Hike Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {hikeHistory.map((hike, index) => (
+              <tr key={hike._id || index} className={`hike-history-row ${index === 0 && !showAllHikes ? 'latest-hike' : ''}`}>
+                <td>
+                  <div className="hike-period">
+                    <span className="hike-month">{hike.month}</span>
+                    <span className="hike-year">{hike.year}</span>
+                  </div>
+                </td>
+                <td>
+                  <span className="hike-percentage-badge">
+                    {hike.hikePercentage}%
+                  </span>
+                </td>
+                <td>
+                  {new Date(hike.hikeStartDate).toLocaleDateString()}
+                </td>
+                <td className="currency">Rs.{hike.previousBasicSalary?.toFixed(2)}</td>
+                <td className="currency">Rs.{hike.newBasicSalary?.toFixed(2)}</td>
+                <td className="currency hike-amount">
+                  +Rs.{hike.hikeAmount?.toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  ) : (
+    <div className="no-hike-history">
+      {hikeFilterMonth || hikeFilterYear ? (
+        <p>No hikes found for the selected filters.</p>
+      ) : (
+        <p>No hike history available for this employee.</p>
+      )}
+    </div>
+  )}
+</div>
                 {/* Action Buttons */}
                 <div className="detail-actions">
                   {selectedSalaryDetail.activeStatus === 'enabled' && (
@@ -1085,7 +1377,12 @@ const handleEditSalary = async (salary) => {
                   )}
                   <button
                     className="action-btns"
-                    onClick={() => setShowSalaryDetail(false)}
+                    onClick={() => {
+                      setShowSalaryDetail(false);
+                      setHikeFilterMonth('');
+                      setHikeFilterYear('');
+                      setHikeHistory([]);
+                    }}
                   >
                     Close
                   </button>

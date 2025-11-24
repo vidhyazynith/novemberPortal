@@ -200,7 +200,7 @@ const CategoryModal = ({
  
             {showForm && (
               <form className="category-form" onSubmit={handleSubmit}>
-                <div className="form-row">
+                <div className="forms-row">
                   <div className="form-group compact-field">
                     <label htmlFor="categoryName">Category Name *</label>
                     <input

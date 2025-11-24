@@ -171,7 +171,7 @@
   gap: 10px;
 }
 
-.form-row {
+.forms-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
@@ -607,7 +607,7 @@
     padding: 16px 20px;
   }
 
-  .form-row {
+  .forms-row {
     grid-template-columns: 1fr;
     gap: 12px;
     margin-bottom: 0px !important;
