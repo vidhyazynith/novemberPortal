@@ -488,19 +488,32 @@ const SalaryTemplateManagement = () => {
                             </svg>
                           </button>
                           <button
-                            className={`action-btns ${template.status === 'active' ? 'warning' : 'success'}`}
-                            onClick={() => handleStatusChange(template._id, template.status)}
-                            title={template.status === 'active' ? 'Deactivate' : 'Activate'}
-                          >
-                            {/* <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              {template.status === 'active' ? (
-                                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                              ) : (
-                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
-                              )}
-                            </svg> */}
-                            ✕
-                          </button>
+
+                          className={`action-btns ${template.status === 'active' ? 'warning' : 'success'}`}
+
+                          onClick={() => handleStatusChange(template._id, template.status)}
+
+                          title={template.status === 'active' ? 'Deactivate' : 'Activate'}
+                        >
+
+                          {template.status === 'active' ? (
+
+                            // ❌ Cross Icon (Deactivate)
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+
+                          ) : (
+
+                            // ✔️ Tick Icon (Activate)
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="20 6 9 17 4 12" />
+                        </svg>
+
+                          )}
+                        </button>
+ 
                           <button
                             className="action-btns danger"
                             onClick={() => handleDeleteTemplate(template._id)}

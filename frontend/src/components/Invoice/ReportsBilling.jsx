@@ -13,6 +13,26 @@ import {
 } from '../../services/invoice';
 import './ReportsBilling.css';
 
+// Add this custom hook for localStorage persistence (AT THE TOP LEVEL)
+const usePersistedSentEmails = () => {
+  const [sentEmails, setSentEmails] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('sentInvoices');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    }
+    return new Set();
+  });
+
+  const updateSentEmails = (newSet) => {
+    setSentEmails(newSet);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sentInvoices', JSON.stringify([...newSet]));
+    }
+  };
+
+  return [sentEmails, updateSentEmails];
+};
+
 const ReportsBilling = () => {
   const [customers, setCustomers] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -41,7 +61,8 @@ const ReportsBilling = () => {
   const [reportLoading, setReportLoading] = useState(false);
 
   const [sendingEmail, setSendingEmail] = useState(false);
-  const [sentEmails, setSentEmails] = useState(new Set());
+  const [sentEmails, setSentEmails] = usePersistedSentEmails();
+  const [emailConfirmation, setEmailConfirmation] = useState({ show: false, invoice: null });
 
   // Load customers and invoices
   useEffect(() => {
@@ -148,9 +169,9 @@ const ReportsBilling = () => {
     setItems(invoice.items.map(item => ({
       description: item.description,
       remarks: item.remarks || "",
-      unitPrice: item.unitPrice ? item.unitPrice.toString() : "", // NEW
-      quantity: item.quantity ? item.quantity.toString() : "", // NEW
-      amount: item.amount ? item.amount.toString() : "" // Auto-calculated
+      unitPrice: item.unitPrice ? item.unitPrice.toString() : "",
+      quantity: item.quantity ? item.quantity.toString() : "",
+      amount: item.amount ? item.amount.toString() : ""
     })));
     setInvoiceDate(new Date(invoice.date).toISOString().split('T')[0]);
     setDueDate(invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : '');
@@ -189,9 +210,8 @@ const ReportsBilling = () => {
         items: items.map((item) => ({
           description: item.description,
           remarks: item.remarks,
-          unitPrice: Number(item.unitPrice), // NEW
-          quantity: Number(item.quantity), // NEW
-          // amount is auto-calculated in backend
+          unitPrice: Number(item.unitPrice),
+          quantity: Number(item.quantity),
         })),
         invoiceDate,
         dueDate,
@@ -326,10 +346,13 @@ const ReportsBilling = () => {
 
       const result = await billingService.verifyPayment(paymentData);
 
-      // Update invoice with complete data including payment details
+      // Update invoice with complete data including payment details AND status
       setInvoices(invoices.map(inv =>
         inv._id === selectedInvoice._id
-          ? result.invoice // Use the complete invoice data from response
+          ? { 
+              ...result.invoice, 
+              status: 'paid'
+            }
           : inv
       ));
 
@@ -401,6 +424,123 @@ const ReportsBilling = () => {
     setShowItemsTable(false);
   };
 
+  // UPDATED: Handle confirmed email sending with proper backend tracking
+  const handleConfirmSendEmail = async () => {
+    const { invoice } = emailConfirmation;
+    
+    if (!invoice) {
+      setEmailConfirmation({ show: false, invoice: null });
+      return;
+    }
+
+    // Get customer email from invoice data
+    const customerEmail = invoice.customerId?.email;
+   
+    if (!customerEmail) {
+      alert('Customer email not found');
+      setEmailConfirmation({ show: false, invoice: null });
+      return;
+    }
+
+    setSendingEmail(true);
+
+    try {
+      // Format invoice details
+      const invoiceNumber = invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`;
+      const customerName = invoice.customerId?.name || 'Customer';
+      const invoiceAmount = `${currencySymbols[invoice.currency] || '$'}${formatInvoiceAmount(invoice)}`;
+      const invoiceDate = new Date(invoice.date).toLocaleDateString();
+      const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A';
+      const status = checkInvoiceStatus(invoice);
+     
+      const subject = `Invoice ${invoiceNumber} from Your Company`;
+      const body = `Dear ${customerName},\n\nPlease find your invoice details below:\n\nInvoice Number: ${invoiceNumber}\nDate: ${invoiceDate}\nDue Date: ${dueDate}\nAmount: ${invoiceAmount}\nStatus: ${status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Unpaid'}\n\nPlease make the payment by the due date.\n\nThank you for your business!\n\nBest regards,\nYour Company Team`;
+
+      // Try multiple Outlook URLs to find one that works without re-login
+      const outlookUrls = [
+        `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+        `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+        `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+      ];
+
+      // Try the first URL (Outlook Office 365)
+      const outlookWindow = window.open(outlookUrls[0], '_blank', 'width=800,height=600');
+     
+      // If popup was blocked or failed, try alternatives
+      if (!outlookWindow || outlookWindow.closed || typeof outlookWindow.closed === 'undefined') {
+        const fallbackWindow = window.open(outlookUrls[1], '_blank');
+       
+        if (!fallbackWindow) {
+          window.location.href = outlookUrls[2];
+        }
+      }
+
+      // ✅ UPDATE BACKEND WITH EMAIL SENT STATUS
+      try {
+        const updateData = {
+          status: 'sent',
+          emailSent: true, // NEW: Track that email was sent
+          emailSentAt: new Date(), // NEW: Track when it was sent
+          // Include other required fields for validation
+          customerId: invoice.customerId._id,
+          items: invoice.items.map(item => ({
+            description: item.description,
+            remarks: item.remarks || "",
+            unitPrice: item.unitPrice,
+            quantity: item.quantity,
+            amount: item.amount
+          })),
+          totalAmount: invoice.totalAmount,
+          invoiceDate: invoice.date,
+          dueDate: invoice.dueDate,
+          taxPercent: invoice.taxPercent || 0,
+          notes: invoice.notes || '',
+          currency: invoice.currency || 'USD'
+        };
+
+        await billingService.updateInvoice(invoice._id, updateData);
+       
+        // ✅ Update local state to reflect both status change AND email sent
+        setInvoices(prevInvoices =>
+          prevInvoices.map(inv =>
+            inv._id === invoice._id
+              ? { 
+                  ...inv, 
+                  status: 'sent',
+                  emailSent: true,
+                  emailSentAt: new Date()
+                }
+              : inv
+          )
+        );
+        
+        // ✅ Add to sent emails set for visual feedback
+        setSentEmails(prev => {
+          const newSet = new Set(prev).add(invoice._id);
+          localStorage.setItem('sentInvoices', JSON.stringify([...newSet]));
+          return newSet;
+        });
+       
+        console.log('✅ Email sent! Status updated to "Sent". Mail button disabled.');
+      } catch (error) {
+        console.error('Error updating invoice status:', error);
+        // Even if backend update fails, keep the tick mark and disable mail button locally
+        setSentEmails(prev => {
+          const newSet = new Set(prev).add(invoice._id);
+          localStorage.setItem('sentInvoices', JSON.stringify([...newSet]));
+          return newSet;
+        });
+      }
+
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Error preparing email. Please try again.');
+    } finally {
+      setSendingEmail(false);
+      setEmailConfirmation({ show: false, invoice: null });
+    }
+  };
+
   // UPDATED: Invoice generation with new fields
   const handleGenerateInvoice = async () => {
     if (!selectedCustomer) {
@@ -429,9 +569,8 @@ const ReportsBilling = () => {
         items: items.map((item) => ({
           description: item.description,
           remarks: item.remarks,
-          unitPrice: Number(item.unitPrice), // NEW
-          quantity: Number(item.quantity), // NEW
-          // amount is auto-calculated in backend
+          unitPrice: Number(item.unitPrice),
+          quantity: Number(item.quantity),
         })),
         invoiceDate,
         dueDate,
@@ -478,92 +617,15 @@ const ReportsBilling = () => {
     return disabledInvoices.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
-  // NEW: Handle sending email with tick mark
+  // NEW: Handle sending email with confirmation popup
   const handleSendEmail = async (invoice) => {
-    // Get customer email from invoice data
-    const customerEmail = invoice.customerId?.email;
-   
-    if (!customerEmail) {
-      alert('Customer email not found');
-      return;
-    }
- 
-    setSendingEmail(true);
- 
-    try {
-      // Format invoice details
-      const invoiceNumber = invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`;
-      const customerName = invoice.customerId?.name || 'Customer';
-      const invoiceAmount = `${currencySymbols[invoice.currency] || '$'}${formatInvoiceAmount(invoice)}`;
-      const invoiceDate = new Date(invoice.date).toLocaleDateString();
-      const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A';
-      const status = checkInvoiceStatus(invoice);
-     
-      const subject = `Invoice ${invoiceNumber} from Your Company`;
-      const body = `Dear ${customerName},\n\nPlease find your invoice details below:\n\nInvoice Number: ${invoiceNumber}\nDate: ${invoiceDate}\nDue Date: ${dueDate}\nAmount: ${invoiceAmount}\nStatus: ${status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Unpaid'}\n\nPlease make the payment by the due date.\n\nThank you for your business!\n\nBest regards,\nYour Company Team`;
- 
-      // Try multiple Outlook URLs to find one that works without re-login
-      const outlookUrls = [
-        `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-        `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-        `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-      ];
- 
-      // Try the first URL (Outlook Office 365)
-      const outlookWindow = window.open(outlookUrls[0], '_blank', 'width=800,height=600');
-     
-      // If popup was blocked or failed, try alternatives
-      if (!outlookWindow || outlookWindow.closed || typeof outlookWindow.closed === 'undefined') {
-        const fallbackWindow = window.open(outlookUrls[1], '_blank');
-       
-        if (!fallbackWindow) {
-          window.location.href = outlookUrls[2];
-        }
-      }
- 
-      // NEW: Add to sent emails set (this creates the tick mark)
-      setSentEmails(prev => new Set(prev).add(invoice._id));
- 
-      // Update invoice status to "sent" using the existing updateInvoice function
-      try {
-        // Create update data with status field
-        const updateData = {
-          status: 'sent',
-          // Include other required fields
-          customerId: invoice.customerId._id,
-          items: invoice.items,
-          totalAmount: invoice.totalAmount,
-          invoiceDate: invoice.date,
-          dueDate: invoice.dueDate,
-          taxPercent: invoice.taxPercent || 0,
-          notes: invoice.notes || '',
-          currency: invoice.currency || 'USD'
-        };
- 
-        await billingService.updateInvoice(invoice._id, updateData);
-       
-        // Update local state to reflect the status change
-        setInvoices(prevInvoices =>
-          prevInvoices.map(inv =>
-            inv._id === invoice._id
-              ? { ...inv, status: 'sent' }
-              : inv
-          )
-        );
-       
-        alert('Email opened! Status updated to "Sent".');
-      } catch (error) {
-        console.error('Error updating invoice status:', error);
-        // Even if backend update fails, keep the tick mark
-        alert('Email opened! There was an error updating the status.');
-      }
- 
-    } catch (error) {
-      console.error('Error sending email:', error);
-      alert('Error preparing email. Please try again.');
-    } finally {
-      setSendingEmail(false);
-    }
+    // Show confirmation popup first
+    setEmailConfirmation({ show: true, invoice });
+  };
+
+  // NEW: Handle cancel email sending
+  const handleCancelSendEmail = () => {
+    setEmailConfirmation({ show: false, invoice: null });
   };
 
   return (
@@ -571,41 +633,41 @@ const ReportsBilling = () => {
       {/* Main Content Grid */}
       <div className="main-content-grid">
         {/* Top Section with Profit & Loss */}
-          <div className="profit-loss-section">
-              <div className="form-section">
-                <div className="card-header">
-                <h3>Profit & Loss Report</h3>
+        <div className="profit-loss-section">
+          <div className="form-section">
+            <div className="card-header">
+              <h3>Profit & Loss Report</h3>
+            </div>
+            <div className="form-field">
+              <label>Date Range</label>
+              <div className="date-range">
+                <input
+                  type="date"
+                  className="date-input"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+                <span>to</span>
+                <input
+                  type="date"
+                  className="date-input"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
               </div>
-                <div className="form-field">
-                  <label>Date Range</label>
-                  <div className="date-range">
-                    <input
-                      type="date"
-                      className="date-input"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                    <span>to</span>
-                    <input
-                      type="date"
-                      className="date-input"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-               
-                <div className="export-buttons">
-                  <button
-                    className="export-btn excel"
-                    onClick={handleDownloadExcel}
-                    disabled={reportLoading || !startDate || !endDate}
-                  >
-                    {reportLoading ? 'Generating...' : 'Excel'}
-                  </button>
-                </div>
-              </div>
+            </div>
+           
+            <div className="export-buttons">
+              <button
+                className="export-btn excel"
+                onClick={handleDownloadExcel}
+                disabled={reportLoading || !startDate || !endDate}
+              >
+                {reportLoading ? 'Generating...' : 'Excel'}
+              </button>
+            </div>
           </div>
+        </div>
      
         {/* Invoice History / Disabled Invoices */}
         <div className="report-card invoice-history-card">
@@ -659,9 +721,9 @@ const ReportsBilling = () => {
                           {new Date(invoice.date).toLocaleDateString()}
                         </td>
                         <td className="invoice-status" data-label="Status">
-                          <span className={`status-badge ${status}`}>
-                            {status === 'overdue' ? 'Overdue' :
-                             status === 'paid' ? 'Paid' : 'Unpaid'}
+                          <span className={`status-badge ${checkInvoiceStatus(invoice)}`}>
+                            {checkInvoiceStatus(invoice) === 'overdue' ? 'Overdue' :
+                             checkInvoiceStatus(invoice) === 'paid' ? 'Paid' : 'Unpaid'}
                           </span>
                         </td>
                         <td className="amount" data-label="Amount">
@@ -669,50 +731,68 @@ const ReportsBilling = () => {
                         </td>
                         <td className="invoice-actions" data-label="Actions">
                           <div className="inv-action-buttons responsive-actions">
-                            {/* Send Email Button with Tick Mark */}
-                            <button
-                              className={`inv-action-btn send ${sentEmails.has(invoice._id) ? 'sent' : ''}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSendEmail(invoice);
-                              }}
-                              title={sentEmails.has(invoice._id) ? "Email Sent" : "Send via Email"}
-                              disabled={sendingEmail}
-                            >
-                              {sendingEmail ? (
-                                <span className="loading-spinner"></span>
-                              ) : sentEmails.has(invoice._id) ? (
-                                // TICK MARK - Email has been sent
+                            {/* Send Email Button - Only show for invoices that haven't been sent */}
+                            {invoice.status !== 'paid' && !invoice.emailSent && !sentEmails.has(invoice._id) && (
+                              <button
+                                className="inv-action-btn send"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSendEmail(invoice);
+                                }}
+                                title="Send via Email"
+                                disabled={sendingEmail}
+                              >
+                                {sendingEmail ? (
+                                  <span className="loading-spinner"></span>
+                                ) : (
+                                  // EMAIL ICON - Email not sent yet
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                    <polyline points="22,6 12,13 2,6"></polyline>
+                                  </svg>
+                                )}
+                              </button>
+                            )}
+
+                            {/* Show tick mark for invoices that have been sent (from backend or local state) */}
+                            {(invoice.emailSent || sentEmails.has(invoice._id)) && (
+                              <button
+                                className="inv-action-btn sent"
+                                title="Email Already Sent"
+                                disabled
+                              >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M20 6L9 17l-5-5" stroke="#10B981" fill="none"/>
                                 </svg>
-                              ) : (
-                                // EMAIL ICON - Email not sent yet
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                  <polyline points="22,6 12,13 2,6"></polyline>
-                                </svg>
-                              )}
-                            </button>
+                              </button>
+                            )}
                             
-                                {/* Edit Button with better status checking */}
-                                <button
-                                  className={`inv-action-btn edit ${invoice.status === 'PAID' || invoice.status === 'paid' ? 'disabled' : ''}`}
-                                  onClick={(e) => {
-                                    if (invoice.status !== 'PAID' && invoice.status !== 'paid') {
-                                      e.stopPropagation();
-                                      handleEditInvoice(invoice);
-                                    }
-                                  }}
-                                  title={invoice.status === 'PAID' || invoice.status === 'paid' ? 'Cannot edit paid invoices' : 'Edit Invoice'}
-                                  disabled={invoice.status === 'PAID' || invoice.status === 'paid'}
-                                >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            {/* Edit Button - Disabled when paid OR email has been sent */}
+                            <button
+                              className={`inv-action-btn edit ${invoice.status === 'paid' || invoice.emailSent || sentEmails.has(invoice._id) ? 'disabled' : ''}`}
+                              onClick={(e) => {
+                                if (invoice.status !== 'paid' && !invoice.emailSent && !sentEmails.has(invoice._id)) {
+                                  e.stopPropagation();
+                                  handleEditInvoice(invoice);
+                                }
+                              }}
+                              title={
+                                invoice.status === 'paid' ? 
+                                  'Cannot edit paid invoices' :
+                                invoice.emailSent || sentEmails.has(invoice._id) ?
+                                  'Cannot edit invoices that have been sent' :
+                                  'Edit Invoice'
+                              }
+                              disabled={invoice.status === 'paid' || invoice.emailSent || sentEmails.has(invoice._id)}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                </svg>
-                                </button>
-                                                            <button
+                              </svg>
+                            </button>
+                            
+                            {/* Download Button - Always available */}
+                            <button
                               className="inv-action-btn download"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -728,51 +808,51 @@ const ReportsBilling = () => {
                             </button>
                            
                             {/* View Payment Proof Button - Only for paid invoices with proof */}
-                            {invoice.status === 'PAID' && invoice.paymentDetails?.proofFile && (
+                            {invoice.status === 'paid' && invoice.paymentDetails?.proofFile && (
+                              <button
+                                className="inv-action-btn view-proof"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewPaymentProof(invoice);
+                                }}
+                                title="View Payment Proof"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                  <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                              </button>
+                            )}
+                           
+                            {/* Verify Payment Button - Only for unpaid invoices */}
+                            {invoice.status !== 'paid' && (
+                              <button
+                                className="inv-action-btn verify-payment"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPaymentModal(invoice);
+                                }}
+                                title="Verify Payment"
+                              >
+                                Verify
+                              </button>
+                            )}
+                           
                             <button
-                              className="inv-action-btn view-proof"
+                              className="inv-action-btn disable"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleViewPaymentProof(invoice);
+                                handleDisableInvoice(invoice._id);
                               }}
-                              title="View Payment Proof"
+                              title="Disable Invoice"
                             >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                              </svg>
+                              Disable
                             </button>
-                          )}
-                         
-                          {/* Verify Payment Button - Only for unpaid/overdue invoices */}
-                          {(status === 'unpaid' || status === 'overdue') && (
-                            <button
-                              className="inv-action-btn verify-payment"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openPaymentModal(invoice);
-                              }}
-                              title="Verify Payment"
-                            >
-                              Verify
-                            </button>
-                          )}
-                         
-                          <button
-                            className="inv-action-btn disable"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDisableInvoice(invoice._id);
-                            }}
-                            title="Disable Invoice"
-                          >
-                            Disable
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   // Disabled Invoices
                   getDisabledInvoicesList().map(invoice => {
@@ -1066,6 +1146,43 @@ const ReportsBilling = () => {
                     disabled={loading}
                   >
                     {loading ? "Generating..." : "Generate & Download PDF"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Confirmation Modal */}
+      {emailConfirmation.show && emailConfirmation.invoice && (
+        <div className="modal-overlay" onClick={handleCancelSendEmail}>
+          <div className="modal-content email-confirmation-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-body">
+              <div className="report-card confirmation-card">
+                <div className="card-header">
+                  <h3>Confirm Email</h3>
+                </div>
+                
+                <div className="confirmation-content">
+                  <p>Are you sure you want to send the invoice <strong>{emailConfirmation.invoice.invoiceNumber}</strong> to <strong>{emailConfirmation.invoice.customerId?.name}</strong>?</p>
+                  <p className="confirmation-note">Once sent, the Edit button will be disabled.</p>
+                </div>
+                
+                <div className="confirmation-actions">
+                  <button 
+                    className="cancel-btn" 
+                    onClick={handleCancelSendEmail}
+                    disabled={sendingEmail}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="confirm-btn" 
+                    onClick={handleConfirmSendEmail}
+                    disabled={sendingEmail}
+                  >
+                    {sendingEmail ? "Sending..." : "Okay"}
                   </button>
                 </div>
               </div>

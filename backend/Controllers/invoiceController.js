@@ -438,7 +438,6 @@ export const generateInvoice = async (req, res) => {
       });
     }
 
-            // Pre-load logo and signature buffers from Cloudinary
     let logoBuffer = null;
     let signatureBuffer = null;
  
@@ -831,7 +830,6 @@ export const generateInvoice = async (req, res) => {
     });
 
     // ===== SIGNATURE SECTION =====
-
     const signatureY = 680;
     const signatureX = pageWidth - 125;
     const signatureWidth = 100;
@@ -848,12 +846,12 @@ export const generateInvoice = async (req, res) => {
         console.error("❌ Error adding signature to PDF:", signatureError.message);
       }
     }
-   
+
     doc.fontSize(10).font('Helvetica')
-       .text(`For ${company.companyName}`, signatureX - 40, signatureY + 5, {
-         width: 150,
-         align: 'center'
-       });
+    .text('For Zynith IT Solutions', signatureX - 40, signatureY + 5, {
+      width: 150,
+      align: 'center'
+    });
 
     // ===== ADD FINAL FOOTER TO LAST PAGE =====
     addFinalFooter();
@@ -897,7 +895,7 @@ export const downloadInvoice = async (req, res) => {
         signature: { url: '' }
       };
     }
- 
+
     let logoBuffer = null;
     let signatureBuffer = null;
  
@@ -932,6 +930,7 @@ export const downloadInvoice = async (req, res) => {
     } catch (signatureError) {
       console.error("❌ Error loading signature from Cloudinary:", signatureError.message);
     }
+
 
     // PDF setup - stream directly to response
     const doc = new PDFDocument({
@@ -978,6 +977,7 @@ export const downloadInvoice = async (req, res) => {
           console.error("❌ Error adding logo to PDF:", logoError.message);
         }
       }
+
 
       // ===== COMPANY INFO =====
       doc.fontSize(20).font('Helvetica-Bold')

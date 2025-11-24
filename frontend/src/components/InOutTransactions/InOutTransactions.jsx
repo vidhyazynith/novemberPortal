@@ -33,8 +33,12 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
     net: 0
   });
   const [categoryOptions, setCategoryOptions] = useState([]);
-  const [dateFilter, setDateFilter] = useState('');
-  const [showCalendar, setShowCalendar] = useState(false);
+  const [incomeCategoryOptions, setIncomeCategoryOptions] = useState([]);
+  const [expenseCategoryOptions, setExpenseCategoryOptions] = useState([]);
+  const [dateRange, setDateRange] = useState({
+    fromDate: '',
+    toDate: ''
+  });
   const [showRecentOnly, setShowRecentOnly] = useState(true);
  
   // Fetch transactions and categories from backend
@@ -45,7 +49,9 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       if (filterType) filters.type = filterType;
       if (filterCategory) filters.category = filterCategory;
       if (search) filters.search = search;
- 
+      if (dateRange.fromDate) filters.fromDate = dateRange.fromDate;
+      if (dateRange.toDate) filters.toDate = dateRange.toDate;
+
       const data = await transactionService.getTransactions(filters);
       setAllTransactions(data.transactions || []);
      
@@ -68,7 +74,7 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       setLoading(false);
     }
   };
- 
+
   // Get recent transactions (last 30 days)
   const getRecentTransactions = (transactionsList) => {
     const thirtyDaysAgo = new Date();
@@ -79,9 +85,9 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       return transactionDate >= thirtyDaysAgo;
     });
   };
- 
+
   // Apply date filter
-  const applyDateFilter = (selectedDate) => {
+  const applyDateRangeFilter  = (selectedDate) => {
     if (!selectedDate) {
       // If no date selected, show recent transactions
       if (showRecentOnly) {
@@ -91,23 +97,41 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       }
       return;
     }
- 
+
     const filtered = allTransactions.filter(transaction => {
       const transactionDate = new Date(transaction.date);
-      const filterDate = new Date(selectedDate);
-     
-      return transactionDate.toDateString() === filterDate.toDateString();
+      
+      if (dateRange.fromDate && dateRange.toDate) {
+        const fromDate = new Date(dateRange.fromDate);
+        const toDate = new Date(dateRange.toDate);
+        toDate.setHours(23, 59, 59, 999); // Include the entire end date
+        
+        return transactionDate >= fromDate && transactionDate <= toDate;
+      } else if (dateRange.fromDate) {
+        const fromDate = new Date(dateRange.fromDate);
+        return transactionDate >= fromDate;
+      } else if (dateRange.toDate) {
+        const toDate = new Date(dateRange.toDate);
+        toDate.setHours(23, 59, 59, 999); // Include the entire end date
+        return transactionDate <= toDate;
+      }
+      
+      return true;
     });
    
     setTransactions(filtered);
   };
- 
+
   // Fetch transaction categories
   const fetchTransactionCategories = async () => {
     try {
       const response = await categoryService.getTransactionCategories();
       if (response.success) {
         setTransactionCategories(response.data);
+        
+        // Create separate category options for filter dropdown
+        setIncomeCategoryOptions(response.data.income.map(cat => cat.name));
+        setExpenseCategoryOptions(response.data.expense.map(cat => cat.name));
       }
     } catch (error) {
       console.error('Error fetching transaction categories:', error);
@@ -115,12 +139,12 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
     }
   };
  
-  useEffect(() => {
+    useEffect(() => {
     fetchTransactions();
     fetchTransactionCategories();
   }, [filterType, filterCategory, search]);
- 
-  // Update category options when transaction type changes
+
+  // Update category options when transaction type changes (for add transaction form)
   useEffect(() => {
     if (newTransaction.type === 'Income') {
       setCategoryOptions(transactionCategories.income.map(cat => cat.name));
@@ -135,22 +159,42 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       setNewTransaction(prev => ({ ...prev, category: '' }));
     }
   }, [newTransaction.type, transactionCategories]);
+
+  // Handle filter type change - reset category filter when type changes
+  const handleFilterTypeChange = (e) => {
+    setFilterType(e.target.value);
+    setFilterCategory(''); // Reset category filter when type changes
+  };
  
-  // Handle recent transactions toggle
+   // Handle recent transactions toggle
   useEffect(() => {
-    if (showRecentOnly) {
+    if (showRecentOnly && !dateRange.fromDate && !dateRange.toDate) {
       setTransactions(getRecentTransactions(allTransactions));
-    } else {
+    } else if (!dateRange.fromDate && !dateRange.toDate) {
       setTransactions(allTransactions);
     }
-    // Clear date filter when toggling recent transactions
-    setDateFilter('');
   }, [showRecentOnly, allTransactions]);
- 
-  // Handle date filter change
+
+  // Handle date range change
   useEffect(() => {
-    applyDateFilter(dateFilter);
-  }, [dateFilter, allTransactions]);
+    applyDateRangeFilter();
+  }, [dateRange, allTransactions]);
+
+    // Handle date range input change
+  const handleDateRangeChange = (field, value) => {
+    setDateRange(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Clear date range filter
+  const clearDateRangeFilter = () => {
+    setDateRange({
+      fromDate: '',
+      toDate: ''
+    });
+  };
  
   // Open detail view modal
   const handleViewDetails = (transaction) => {
@@ -271,18 +315,18 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
   };
  
   // Get all available categories for filter dropdown
-  const getAllCategories = () => {
-    const allCategories = [
-      ...transactionCategories.income.map(cat => cat.name),
-      ...transactionCategories.expense.map(cat => cat.name)
-    ];
-    return [...new Set(allCategories)]; // Remove duplicates
-  };
+  // const getAllCategories = () => {
+  //   const allCategories = [
+  //     ...transactionCategories.income.map(cat => cat.name),
+  //     ...transactionCategories.expense.map(cat => cat.name)
+  //   ];
+  //   return [...new Set(allCategories)]; // Remove duplicates
+  // };
  
-  // Clear date filter
-  const clearDateFilter = () => {
-    setDateFilter('');
-  };
+  // // Clear date filter
+  // const clearDateFilter = () => {
+  //   setDateFilter('');
+  // };
  
   return (
     <div className="transactions-container">
@@ -331,95 +375,111 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       </div>
  
       {/* Transaction History Header */}
-      <div className="transaction-history-header">
+       <div className="transaction-history-header">
         <h2>
           Transaction History ({transactions.length} records)
-         
-          {dateFilter && <span className="date-filter-badge">Filtered by Date</span>}
+          {(dateRange.fromDate || dateRange.toDate) && (
+            <span className="date-filter-badge">
+              {dateRange.fromDate && dateRange.toDate 
+                ? `From ${formatDate(dateRange.fromDate)} to ${formatDate(dateRange.toDate)}`
+                : dateRange.fromDate 
+                ? `From ${formatDate(dateRange.fromDate)}`
+                : `To ${formatDate(dateRange.toDate)}`
+              }
+            </span>
+          )}
         </h2>
         <button className="add-transaction-btn" onClick={() => setOpen(true)}>
           + Add Transaction
         </button>
       </div>
+
  
       {/* Search and Filters */}
       <div className="filters-section">
-        <div className="filters-left">
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Search transactions or remarks"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-         
-          <select
-            className="filter-select"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-          >
-            <option value="">All Types</option>
-            {typeOptions.map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
- 
-          {/* Date Filter */}
-          <div className="date-filter-container">
-            <button
-              className="date-filter-btn"
-              onClick={() => setShowCalendar(!showCalendar)}
-            >
-              📅 {dateFilter ? formatDate(dateFilter) : 'Filter by Date'}
-            </button>
-           
-            {showCalendar && (
-              <div className="calendar-popup">
-                <div className="calendar-header">
-                  <h4>Select Date</h4>
-                  <button
-                    className="clear-date-btn"
-                    onClick={clearDateFilter}
-                  >
-                    Clear
-                  </button>
-                </div>
-                <input
-                  type="date"
-                  className="date-picker"
-                  value={dateFilter}
-                  onChange={(e) => {
-                    setDateFilter(e.target.value);
-                    setShowCalendar(false);
-                  }}
-                  max={new Date().toISOString().split('T')[0]}
-                />
-              </div>
-            )}
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Search transactions or remarks"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="filter-select"
+          value={filterType}
+          onChange={handleFilterTypeChange}
+        >
+          <option value="">All Types</option>
+          {typeOptions.map((type) => (
+            <option key={type} value={type}>{type}</option>
+          ))}
+        </select>
+        <select
+          className="filter-select"
+          value={filterCategory}
+          onChange={(e) => setFilterCategory(e.target.value)}
+        >
+          <option value="">All Categories</option>
+          {filterType === 'Income' && (
+            <optgroup label="Income Categories">
+              {incomeCategoryOptions.map((cat) => (
+                <option key={`income-${cat}`} value={cat}>{cat}</option>
+              ))}
+            </optgroup>
+          )}
+          {filterType === 'Expense' && (
+            <optgroup label="Expense Categories">
+              {expenseCategoryOptions.map((cat) => (
+                <option key={`expense-${cat}`} value={cat}>{cat}</option>
+              ))}
+            </optgroup>
+          )}
+          {!filterType && (
+            <>
+              <optgroup label="Income Categories">
+                {incomeCategoryOptions.map((cat) => (
+                  <option key={`income-${cat}`} value={cat}>{cat}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Expense Categories">
+                {expenseCategoryOptions.map((cat) => (
+                  <option key={`expense-${cat}`} value={cat}>{cat}</option>
+                ))}
+              </optgroup>
+            </>
+          )}
+        </select>
+
+    {/* Date Range Filter */}
+        <div className="date-range-filter">
+          <div className="date-input-group">
+            <label>From Date</label>
+            <input
+              type="date"
+              className="date-input"
+              value={dateRange.fromDate}
+              onChange={(e) => handleDateRangeChange('fromDate', e.target.value)}
+              max={dateRange.toDate || new Date().toISOString().split('T')[0]}
+            />
           </div>
-        </div>
- 
-        <div className="filters-right">
-          {/* Recent Transactions Toggle */}
-          <div className="recent-toggle">
-            <label className="toggle-label">
-              <input
-                type="checkbox"
-                checked={showRecentOnly}
-                onChange={(e) => setShowRecentOnly(e.target.checked)}
-                disabled={!!dateFilter}
-              />
-              <span className="toggle-slider"></span>
-            </label>
-            <span className="toggle-text">Show Recent Only</span>
+          <div className="date-input-group">
+            <label>To Date</label>
+            <input
+              type="date"
+              className="date-input"
+              value={dateRange.toDate}
+              onChange={(e) => handleDateRangeChange('toDate', e.target.value)}
+              min={dateRange.fromDate}
+              max={new Date().toISOString().split('T')[0]}
+            />
           </div>
- 
-          {dateFilter && (
-            <button
-              className="clear-filters-btn"
-              onClick={clearDateFilter}
+          {(dateRange.fromDate || dateRange.toDate) && (
+            <button 
+              className="clear-date-filter-btn"
+              onClick={clearDateRangeFilter}
+              title="Clear date filter"
             >
-              Clear Date Filter
+              ×
             </button>
           )}
         </div>
