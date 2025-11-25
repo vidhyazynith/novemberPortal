@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { categoryService, categoryTypes } from '../../../services/categoryService';
 import CategoryModal from './CategoryModal';
 import './CategorySettings.css';
-
+ 
 const CategorySettings = () => {
   const [categories, setCategories] = useState({
     'employee-role': [],
@@ -17,18 +17,18 @@ const CategorySettings = () => {
   const [activeModal, setActiveModal] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
+ 
   // Load all categories and statistics from API
   useEffect(() => {
     loadAllCategories();
   }, []);
-
+ 
   const loadAllCategories = async () => {
     try {
       setLoading(true);
       setError('');
       const result = await categoryService.getAllCategories();
-      
+     
       if (result.success) {
         setCategories(result.data);
         setStats(result.stats);
@@ -42,15 +42,15 @@ const CategorySettings = () => {
       setLoading(false);
     }
   };
-
+ 
   const handleModalOpen = (type) => {
     setActiveModal(type);
   };
-
+ 
   const handleModalClose = () => {
     setActiveModal(null);
   };
-
+ 
   const handleCategoriesUpdate = async (type) => {
     // Refresh the specific category type from API
     try {
@@ -69,13 +69,12 @@ const CategorySettings = () => {
       console.error(`Error updating ${type}:`, error);
     }
   };
-
+ 
   if (loading) {
     return (
       <div className="category-settings">
         <div className="settings-header">
-          <h2>Category Management</h2>
-     
+          <h1>Category Settings</h1>
         </div>
         <div className="loading-container">
           <div className="loading-spinner"></div>
@@ -84,14 +83,13 @@ const CategorySettings = () => {
       </div>
     );
   }
-
+ 
   return (
     <div className="category-settings">
       {/* <div className="settings-header">
-        <h2>Category Management</h2>
-       
+        <h1>Category Settings</h1>
       </div> */}
-
+ 
       {error && (
         <div className="error-banner">
           <span className="error-icon">⚠️</span>
@@ -101,33 +99,35 @@ const CategorySettings = () => {
           </button>
         </div>
       )}
-
-      <div className="category-grid">
+ 
+      <div className="category-grid-2x2">
         {categoryTypes.map((typeConfig) => (
           <div
             key={typeConfig.id}
-            className="category-card"
+            className="category-card-compact"
             onClick={() => handleModalOpen(typeConfig.id)}
           >
-            <div 
-              className="category-icon"
-              style={{ backgroundColor: `${typeConfig.color}20`, color: typeConfig.color }}
-            >
-              {typeConfig.icon}
-            </div>
-            <div className="category-content">
-              <h3 className="category-title">{typeConfig.title}</h3>
-              <p className="category-description">{typeConfig.description}</p>
-              <div className="category-stats">
-                <span className="category-count">{stats[typeConfig.id] || 0}</span>
-                <span className="category-label">categories</span>
+            <div className="card-header">
+              <div
+                className="category-icon-compact"
+                style={{ backgroundColor: `${typeConfig.color}20`, color: typeConfig.color }}
+              >
+                {typeConfig.icon}
+              </div>
+              <div className="card-stats">
+                <span className="category-count-compact">{stats[typeConfig.id] || 0}</span>
+                <span className="category-label-compact">categories</span>
               </div>
             </div>
-            <div className="category-arrow">→</div>
+            <div className="card-content">
+              <h3 className="category-title-compact">{typeConfig.title}</h3>
+              <p className="category-description-compact">{typeConfig.description}</p>
+            </div>
+            <div className="card-arrow">→</div>
           </div>
         ))}
       </div>
-
+ 
       {/* Modal for each category type */}
       {categoryTypes.map((typeConfig) => (
         <CategoryModal
@@ -142,5 +142,5 @@ const CategorySettings = () => {
     </div>
   );
 };
-
+ 
 export default CategorySettings;

@@ -483,6 +483,23 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
             </button>
           )}
         </div>
+        {/* <div className="recent-toggle-section">
+          <label className="toggle-label">
+            <span>Show Last 30 Days</span>
+            <div className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={showRecentOnly && !dateRange.fromDate && !dateRange.toDate}
+                onChange={handleRecentToggle}
+                disabled={!!dateRange.fromDate || !!dateRange.toDate}
+              />
+              <span className="toggle-slider"></span>
+            </div>
+          </label>
+          {(dateRange.fromDate || dateRange.toDate) && (
+            <p className="toggle-hint">Date range filter is active</p>
+          )}
+        </div> */}
       </div>
  
       {/* Transactions Table */}
@@ -491,8 +508,9 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
           <div className="loading">Loading transactions...</div>
         ) : transactions.length === 0 ? (
           <div className="no-transactions">
-            {dateFilter ? (
-              <p>No transactions found for the selected date.</p>
+            {/* FIXED: Replaced dateFilter with dateRange */}
+            {dateRange.fromDate || dateRange.toDate ? (
+              <p>No transactions found for the selected date range.</p>
             ) : showRecentOnly ? (
               <p>No recent transactions found in the last 30 days.</p>
             ) : (
