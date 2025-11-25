@@ -791,6 +791,39 @@
   cursor: not-allowed;
 }
 
+
+/* Due date information styling */
+.due-date-info {
+  margin-top: 5px;
+  padding: 5px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #007bff;
+}
+
+.due-date-info small {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Read-only due date field styling */
+.form-input[readonly] {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+}
+
+/* Payment terms indicator */
+.payment-terms-indicator {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: #e7f3ff;
+  border-radius: 12px;
+  font-size: 0.8em;
+  color: #0066cc;
+}
+
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .reports-billing-container {

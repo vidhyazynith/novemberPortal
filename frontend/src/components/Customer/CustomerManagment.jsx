@@ -11,18 +11,27 @@ const CustomerManagment = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
-  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'inactive'
-  const [phoneError, setPhoneError] = useState(''); // NEW: Separate state for phone validation
- 
-  // Form state
+  const [activeTab, setActiveTab] = useState('active');
+  const [phoneError, setPhoneError] = useState('');
+  const [paymentTermsError, setPaymentTermsError] = useState('');
+
+  // Form state with proper default values
   const [form, setForm] = useState({
     name: '',
     email: '',
     phone: '',
     address: '',
     company: '',
-    customerType: 'individual'
+    customerType: 'individual',
+    paymentTerms: 30 // Default to 30 days as number
   });
+
+  // Payment terms display function
+  const getPaymentTermsDisplay = (terms) => {
+    if (terms === 0) return 'Due on receipt';
+    if (terms === 1) return 'Net 1 day';
+    return `Net ${terms} days`;
+  };
 
   // Fetch customers from MongoDB
   const fetchCustomers = async () => {
@@ -37,16 +46,33 @@ const CustomerManagment = () => {
       setLoading(false);
     }
   };
- 
+
   useEffect(() => {
     fetchCustomers();
   }, []);
- 
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    
+    // Convert paymentTerms to number
+    if (name === 'paymentTerms') {
+      const numValue = value === '' ? '' : Number(value);
+      setForm({ ...form, [name]: numValue });
+      
+      // Validate payment terms
+      // if (value === '') {
+      //   setPaymentTermsError('Payment terms is required');
+      if (numValue < 0 || numValue > 365) {
+        setPaymentTermsError('Payment terms must be between 0 and 365 days');
+      } else {
+        setPaymentTermsError('');
+      }
+    } else {
+      setForm({ ...form, [name]: value });
+    }
   };
 
-  // NEW: Phone validation function
+  // Phone validation function
   const validatePhoneNumber = (phone) => {
     if (!phone) {
       setPhoneError('Phone number is required');
@@ -59,6 +85,28 @@ const CustomerManagment = () => {
     }
     
     setPhoneError('');
+    return true;
+  };
+
+  // Validate payment terms
+  const validatePaymentTerms = (paymentTerms) => {
+    // if (paymentTerms === '' || paymentTerms === null || paymentTerms === undefined) {
+    //   setPaymentTermsError('Payment terms is required');
+    //   return false;
+    // }
+    
+    const terms = Number(paymentTerms);
+    if (isNaN(terms)) {
+      setPaymentTermsError('Payment terms must be a number');
+      return false;
+    }
+    
+    if (terms < 0 || terms > 365) {
+      setPaymentTermsError('Payment terms must be between 0 and 365 days');
+      return false;
+    }
+    
+    setPaymentTermsError('');
     return true;
   };
 
@@ -80,7 +128,7 @@ const CustomerManagment = () => {
       setPhoneError('Phone number is required');
     }
   };
- 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -92,13 +140,25 @@ const CustomerManagment = () => {
         return;
       }
 
+      // Validate payment terms
+      if (!validatePaymentTerms(form.paymentTerms)) {
+        setLoading(false);
+        return;
+      }
+
+      // Prepare data for submission
+      const submitData = {
+        ...form,
+        paymentTerms: form.paymentTerms === '' ? 30 : Number(form.paymentTerms)
+      };
+
       if (editingCustomer) {
         // Update existing customer
-        await customerService.updateCustomer(editingCustomer._id, form);
+        await customerService.updateCustomer(editingCustomer._id, submitData);
         alert('Customer updated successfully!');
       } else {
         // Add new customer
-        await customerService.createCustomer(form);
+        await customerService.createCustomer(submitData);
         alert('Customer added successfully!');
       }
      
@@ -112,18 +172,20 @@ const CustomerManagment = () => {
         phone: '',
         address: '',
         company: '',
-        customerType: 'individual'
+        customerType: 'individual',
+        paymentTerms: 30
       });
       setShowAddForm(false);
       setEditingCustomer(null);
-      setPhoneError(''); // Clear phone error on success
+      setPhoneError('');
+      setPaymentTermsError('');
     } catch (error) {
       alert('Error saving customer: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
- 
+
   const handleEdit = (customer) => {
     setForm({
       name: customer.name || '',
@@ -131,20 +193,22 @@ const CustomerManagment = () => {
       phone: customer.phone || '',
       address: customer.address || '',
       company: customer.company || '',
-      customerType: customer.customerType || 'individual'
+      customerType: customer.customerType || 'individual',
+      paymentTerms: customer.paymentTerms || 30
     });
     setEditingCustomer(customer);
-    setPhoneError(''); // Clear phone error when editing
+    setPhoneError('');
+    setPaymentTermsError('');
     setShowAddForm(true);
   };
- 
+
   const handleStatusChange = async (customerId, currentStatus, newStatus) => {
     const confirmationMessage = `Are you sure you want to change the status from ${currentStatus} to ${newStatus}?`;
    
     if (window.confirm(confirmationMessage)) {
       try {
         await customerService.updateCustomerStatus(customerId, newStatus);
-        await fetchCustomers(); // Refresh the list
+        await fetchCustomers();
        
         // Auto-switch tabs based on new status
         if (newStatus === 'active') {
@@ -157,7 +221,7 @@ const CustomerManagment = () => {
       }
     }
   };
- 
+
   const handleCancel = () => {
     setForm({
       name: '',
@@ -165,31 +229,33 @@ const CustomerManagment = () => {
       phone: '',
       address: '',
       company: '',
-      customerType: 'individual'
+      customerType: 'individual',
+      paymentTerms: 30
     });
     setShowAddForm(false);
     setEditingCustomer(null);
-    setPhoneError(''); // Clear phone error when closing modal
+    setPhoneError('');
+    setPaymentTermsError('');
   };
- 
+
   const filteredCustomers = customers.filter(customer =>
     customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.phone?.includes(searchTerm)
   );
- 
+
   // Filter customers based on active tab
   const statusFilteredCustomers = filteredCustomers.filter(customer =>
     activeTab === 'active'
       ? customer.status === 'active' || !customer.status
       : customer.status === 'inactive'
   );
- 
+
   const activeCustomers = customers.filter(c => c.status === 'active' || !c.status).length;
   const inactiveCustomers = customers.filter(c => c.status === 'inactive').length;
   const corporateCustomers = customers.filter(c => c.customerType === 'corporate').length;
- 
+
   return (
     <div className="customer-management-container">
       {/* Stats Cards */}
@@ -218,8 +284,8 @@ const CustomerManagment = () => {
           </div>
         </div>
       </div>
- 
-      {/* Search and Actions - Modified layout */}
+
+      {/* Search and Actions */}
       <div className="customer-actions-section">
         <div className="search-section">
           <div className="search-box">
@@ -242,7 +308,7 @@ const CustomerManagment = () => {
           </div>
         </div>
       </div>
- 
+
       {/* Add/Edit Customer Form */}
       {showAddForm && (
         <div className="customer-forme-modal">
@@ -255,13 +321,13 @@ const CustomerManagment = () => {
             <form onSubmit={handleSubmit} className="customer-forme">
               <div className="forme-grid">
                 <div className="forme-group">
-                  <label>Full Name *</label>
+                  <label>Contact Person *</label>
                   <input
                     type="text"
                     name="name"
                     value={form.name}
                     onChange={handleChange}
-                    placeholder="Enter customer name"
+                    placeholder="Enter contact person name"
                     required
                   />
                 </div>
@@ -323,6 +389,28 @@ const CustomerManagment = () => {
                     placeholder="Enter company name"
                   />
                 </div>
+
+                <div className="forme-group">
+                  <label>Payment Terms (Days) *</label>
+                  <input
+                    type="number"
+                    name="paymentTerms"
+                    value={form.paymentTerms}
+                    onChange={handleChange}
+                    placeholder="Enter payment terms in days"
+                    min="1"
+                    max="365"
+                    // required
+                  />
+                  {paymentTermsError && (
+                    <small className="error-text" style={{ color: '#dc2626', marginTop: '4px' }}>
+                      {paymentTermsError}
+                    </small>
+                  )}
+                  <small style={{ color: '#64748b', marginTop: paymentTermsError ? '2px' : '6px' }}>
+                    Number of days for payment (1-365).
+                  </small>
+                </div>
                
                 <div className="forme-group full-width">
                   <label>Address</label>
@@ -343,7 +431,7 @@ const CustomerManagment = () => {
                 <button 
                   type="submit" 
                   className="submit-btn" 
-                  disabled={loading || phoneError}
+                  disabled={loading || phoneError || paymentTermsError}
                 >
                   {loading ? 'Saving...' : (editingCustomer ? 'Update Customer' : 'Add Customer')}
                 </button>
@@ -381,10 +469,11 @@ const CustomerManagment = () => {
           <table className="customers-table">
             <thead>
               <tr>
-                <th>Name</th>
+                <th>Contact Person</th>
                 <th>Contact Info</th>
                 <th>Company</th>
                 <th>Type</th>
+                <th>Payment Terms</th>
                 <th>Join Date</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -393,13 +482,13 @@ const CustomerManagment = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="empty-cell">
+                  <td colSpan="8" className="empty-cell">
                     Loading customers...
                   </td>
                 </tr>
               ) : statusFilteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="empty-cell">
+                  <td colSpan="8" className="empty-cell">
                     No {activeTab === 'active' ? 'active' : 'inactive'} customers found
                   </td>
                 </tr>
@@ -428,6 +517,11 @@ const CustomerManagment = () => {
                       </span>
                     </td>
                     <td>
+                      <div className="payment-terms">
+                        {getPaymentTermsDisplay(customer.paymentTerms)}
+                      </div>
+                    </td>
+                    <td>
                       <div className="join-date">
                         {customer.joinDate
                           ? new Date(customer.joinDate).toLocaleDateString()
@@ -439,7 +533,7 @@ const CustomerManagment = () => {
                     </td>
                     <td>
                       <span className={`status-badge ${customer.status || 'active'}`}>
-                        {customer.status || 'active'}
+                        {(customer.status || 'active').toUpperCase()}
                       </span>
                     </td>
                     <td>
@@ -477,5 +571,5 @@ const CustomerManagment = () => {
     </div>
   );
 };
- 
+
 export default CustomerManagment;

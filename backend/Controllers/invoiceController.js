@@ -172,6 +172,27 @@ const createTransactionForPaidInvoice = async (invoice, transactionNumber) => {
   }
 };
 
+// SIMPLIFIED FUNCTION: Auto-calculate due date based on customer payment terms
+const calculateDueDate = (invoiceDate, paymentTerms) => {
+  if (!paymentTerms || !invoiceDate) {
+    console.log('❌ Missing payment terms or invoice date for due date calculation');
+    return null;
+  }
+  
+  try {
+    const invoiceDateObj = new Date(invoiceDate);
+    const dueDateObj = new Date(invoiceDateObj);
+    dueDateObj.setDate(invoiceDateObj.getDate() + parseInt(paymentTerms));
+    
+    console.log(`📅 Due Date Calculation: ${invoiceDate} + ${paymentTerms} days = ${dueDateObj.toISOString().split('T')[0]}`);
+    
+    return dueDateObj;
+  } catch (error) {
+    console.error('❌ Error calculating due date:', error);
+    return null;
+  }
+};
+
 export const updateInvoice = async (req, res) => {
   try {
     const { id } = req.params;
@@ -233,6 +254,19 @@ export const updateInvoice = async (req, res) => {
       return res.status(404).json({ message: "Customer not found" });
     }
 
+    //SIMPLIFIED AUTO-CALCULATION: Always calculate due date from payment terms
+    let finalDueDate = null;
+    if (customer.paymentTerms && invoiceDate) {
+      finalDueDate = calculateDueDate(invoiceDate, customer.paymentTerms);
+      console.log(`✅ Auto-calculated due date for update: ${finalDueDate?.toISOString().split('T')[0]} (${customer.paymentTerms} days from invoice date)`);
+    }
+
+    // If no due date could be calculated, use the existing due date
+    if (!finalDueDate && existingInvoice.dueDate) {
+      finalDueDate = existingInvoice.dueDate;
+      console.log('ℹ️ Using existing due date from invoice');
+    }
+
     // Calculate totals with new logic
     const subtotal = items.reduce((sum, item) => {
       const unitPrice = Number(item.unitPrice) || 0;
@@ -259,7 +293,7 @@ export const updateInvoice = async (req, res) => {
         })),
         totalAmount,
         date: invoiceDate ? new Date(invoiceDate) : new Date(),
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: finalDueDate,
         taxPercent: taxPercent || 0,
         taxAmount,
         subtotal,
@@ -423,20 +457,39 @@ export const generateInvoice = async (req, res) => {
       return res.status(404).json({ message: "Customer not found" });
     }
 
-    // Fetch or create company info
-    let company = await Company.findOne();
-    if (!company) {
-      // Create default company info if none exists
-      company = await Company.create({
-        companyName: 'Zynith IT Solutions',
-        address: '123 Business Street, City, State 12345',
-        phone: '+1 (555) 123-4567',
-        email: 'contact@zynith-it.com',
-        taxId: 'TAX-123456789',
-        logo: { url: '' },
-        signature: { url: '' }
+    // ✅ ENFORCED AUTO-CALCULATION: ALWAYS calculate due date from payment terms
+    let finalDueDate = null;
+    
+    if (customer.paymentTerms && invoiceDate) {
+      finalDueDate = calculateDueDate(invoiceDate, customer.paymentTerms);
+      console.log(`✅ ENFORCED Auto-calculated due date: ${finalDueDate?.toISOString().split('T')[0]} (${customer.paymentTerms} days from invoice date)`);
+    } else {
+      console.log('❌ Cannot calculate due date - missing payment terms or invoice date');
+      return res.status(400).json({ 
+        message: "Cannot generate invoice: Customer payment terms or invoice date is missing" 
       });
     }
+
+    // Fetch company info from company settings
+    let company = await Company.findOne();
+    if (!company) {
+      return res.status(404).json({ message: "Company information not found. Please set up company details first." });
+    }
+
+    // Fetch or create company info
+    // let company = await Company.findOne();
+    // if (!company) {
+    //   // Create default company info if none exists
+    //   company = await Company.create({
+    //     companyName: 'Zynith IT Solutions',
+    //     address: '123 Business Street, City, State 12345',
+    //     phone: '+1 (555) 123-4567',
+    //     email: 'contact@zynith-it.com',
+    //     taxId: 'TAX-123456789',
+    //     logo: { url: '' },
+    //     signature: { url: '' }
+    //   });
+    // }
 
     let logoBuffer = null;
     let signatureBuffer = null;
@@ -495,7 +548,7 @@ export const generateInvoice = async (req, res) => {
       })),
       totalAmount: grandTotal,
       date: invoiceDate ? new Date(invoiceDate) : new Date(),
-      dueDate: dueDate ? new Date(dueDate) : null,
+      dueDate: finalDueDate, // Use ENFORCED auto-calculated due date
       taxPercent: taxPercent || 0,
       taxAmount,
       subtotal,

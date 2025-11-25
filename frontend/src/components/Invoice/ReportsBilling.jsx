@@ -38,10 +38,17 @@ const ReportsBilling = () => {
   const [invoices, setInvoices] = useState([]);
   const [disabledInvoices, setDisabledInvoices] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [items, setItems] = useState([{ ...defaultInvoiceItem }]);
+  const [items, setItems] = useState([{
+    ...defaultInvoiceItem,
+    description: "",
+    remarks: "",
+    unitPrice: "",
+    quantity: "",
+    amount: ""
+  }]);
   const [invoiceDate, setInvoiceDate] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [taxPercent, setTaxPercent] = useState(0);
+  const [taxPercent, setTaxPercent] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [showItemsTable, setShowItemsTable] = useState(false);
@@ -64,6 +71,89 @@ const ReportsBilling = () => {
   const [sentEmails, setSentEmails] = usePersistedSentEmails();
   const [emailConfirmation, setEmailConfirmation] = useState({ show: false, invoice: null });
 
+  // NEW: Dedicated function for due date calculation
+  const calculateDueDate = (invoiceDate, paymentTerms) => {
+    if (!paymentTerms || !invoiceDate) {
+      return null;
+    }
+   
+    const invoiceDateObj = new Date(invoiceDate);
+    const dueDateObj = new Date(invoiceDateObj);
+    dueDateObj.setDate(invoiceDateObj.getDate() + parseInt(paymentTerms));
+   
+    return dueDateObj.toISOString().split('T')[0];
+  };
+
+  // ENHANCED: Handle customer selection with payment terms calculation
+  const handleCustomerChange = (customerId) => {
+    setSelectedCustomer(customerId);
+   
+    if (!customerId) {
+      setDueDate('');
+      return;
+    }
+   
+    // Find the selected customer to get payment terms
+    const selectedCustomerData = customers.find(customer => customer._id === customerId);
+   
+    if (selectedCustomerData && selectedCustomerData.paymentTerms && invoiceDate) {
+      // Auto-calculate due date based on payment terms
+      const calculatedDueDate = calculateDueDate(invoiceDate, selectedCustomerData.paymentTerms);
+      setDueDate(calculatedDueDate);
+     
+      console.log(`✅ Auto-calculated due date: ${calculatedDueDate} (${selectedCustomerData.paymentTerms} days from invoice date)`);
+    } else if (selectedCustomerData && !invoiceDate) {
+      // If no invoice date, clear due date but store customer for later calculation
+      setDueDate('');
+    }
+  };
+
+  // ENHANCED: Handle invoice date change with due date recalculation
+  const handleInvoiceDateChange = (date) => {
+    setInvoiceDate(date);
+   
+    // Recalculate due date if customer is selected and has payment terms
+    if (selectedCustomer) {
+      const selectedCustomerData = customers.find(customer => customer._id === selectedCustomer);
+      if (selectedCustomerData && selectedCustomerData.paymentTerms && date) {
+        const calculatedDueDate = calculateDueDate(date, selectedCustomerData.paymentTerms);
+        setDueDate(calculatedDueDate);
+       
+        console.log(`✅ Re-calculated due date: ${calculatedDueDate} (${selectedCustomerData.paymentTerms} days from new invoice date)`);
+      }
+    }
+  };
+
+  // NEW: Handle due date manual input with validation
+  const handleDueDateChange = (date) => {
+    if (!selectedCustomer || !invoiceDate) {
+      setDueDate(date);
+      return;
+    }
+
+    const selectedCustomerData = customers.find(customer => customer._id === selectedCustomer);
+    if (selectedCustomerData?.paymentTerms) {
+      const calculatedDueDate = calculateDueDate(invoiceDate, selectedCustomerData.paymentTerms);
+      const manualDueDate = new Date(date);
+      const minDueDate = new Date(calculatedDueDate);
+
+      if (manualDueDate < minDueDate) {
+        // Show warning but allow user to proceed
+        const shouldProceed = window.confirm(
+          `The due date you entered is earlier than the calculated due date based on payment terms (${calculatedDueDate}). Do you want to proceed?`
+        );
+       
+        if (!shouldProceed) {
+          // Revert to calculated due date
+          setDueDate(calculatedDueDate);
+          return;
+        }
+      }
+    }
+
+    setDueDate(date);
+  };
+
   // Load customers and invoices
   useEffect(() => {
     const fetchData = async () => {
@@ -77,11 +167,14 @@ const ReportsBilling = () => {
         const disabledInvoicesData = await billingService.getDisabledInvoices();
         setDisabledInvoices(disabledInvoicesData);
 
-        // Set default dates
+        // Set default dates with proper initialization
         const { today, firstDay } = getDefaultDates();
-        setInvoiceDate(today);
-        setStartDate(firstDay);
-        setEndDate(today);
+        setInvoiceDate(today || '');
+        setStartDate(firstDay || '');
+        setEndDate(today || '');
+       
+        // Initialize taxPercent as string
+        setTaxPercent('0');
       } catch (error) {
         console.error("Error fetching data:", error);
         alert("Error fetching data");
@@ -162,27 +255,39 @@ const ReportsBilling = () => {
     }
   };
 
-  // NEW: Open edit invoice modal
+  // ENHANCED: Open edit invoice modal with due date calculation
   const handleEditInvoice = (invoice) => {
     setEditingInvoice(invoice);
     setSelectedCustomer(invoice.customerId._id);
     setItems(invoice.items.map(item => ({
-      description: item.description,
+      description: item.description || "",
       remarks: item.remarks || "",
       unitPrice: item.unitPrice ? item.unitPrice.toString() : "",
       quantity: item.quantity ? item.quantity.toString() : "",
       amount: item.amount ? item.amount.toString() : ""
     })));
-    setInvoiceDate(new Date(invoice.date).toISOString().split('T')[0]);
-    setDueDate(invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : '');
-    setTaxPercent(invoice.taxPercent || 0);
+   
+    const invoiceDateValue = new Date(invoice.date).toISOString().split('T')[0];
+    setInvoiceDate(invoiceDateValue);
+   
+    // Calculate due date based on customer's payment terms for edit mode
+    const customer = customers.find(c => c._id === invoice.customerId._id);
+    if (customer && customer.paymentTerms) {
+      const calculatedDueDate = calculateDueDate(invoiceDateValue, customer.paymentTerms);
+      setDueDate(calculatedDueDate);
+      console.log(`✅ Auto-calculated due date for edit: ${calculatedDueDate} (${customer.paymentTerms} days)`);
+    } else {
+      setDueDate(invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : '');
+    }
+   
+    setTaxPercent(invoice.taxPercent ? invoice.taxPercent.toString() : '0');
     setNotes(invoice.notes || '');
     setCurrency(invoice.currency || 'USD');
     setShowItemsTable(true);
     setShowEditModal(true);
   };
 
-  // NEW: Handle update invoice
+  // Handle update invoice with better error handling
   const handleUpdateInvoice = async () => {
     if (!selectedCustomer) {
       alert("Please select a customer.");
@@ -190,16 +295,22 @@ const ReportsBilling = () => {
     }
 
     // Validate items with new fields
-    const invalidItems = items.some((item) => 
-      !item.description.trim() || 
-      !item.unitPrice || 
-      item.unitPrice <= 0 || 
-      !item.quantity || 
-      item.quantity <= 0
+    const invalidItems = items.some((item) =>
+      !item.description.trim() ||
+      !item.unitPrice ||
+      parseFloat(item.unitPrice) <= 0 ||
+      !item.quantity ||
+      parseFloat(item.quantity) <= 0
     );
-    
+   
     if (invalidItems) {
       alert("Please enter valid item descriptions, unit prices, and quantities.");
+      return;
+    }
+
+    // Validate dates
+    if (!invoiceDate) {
+      alert("Please select an invoice date.");
       return;
     }
 
@@ -209,16 +320,18 @@ const ReportsBilling = () => {
         customerId: selectedCustomer,
         items: items.map((item) => ({
           description: item.description,
-          remarks: item.remarks,
+          remarks: item.remarks || "",
           unitPrice: Number(item.unitPrice),
           quantity: Number(item.quantity),
         })),
         invoiceDate,
-        dueDate,
-        taxPercent: Number(taxPercent),
-        notes,
+        dueDate: dueDate || null,
+        taxPercent: Number(taxPercent) || 0,
+        notes: notes || '',
         currency: currency,
       };
+
+      console.log('Updating invoice data:', invoiceData);
 
       await billingService.updateInvoice(editingInvoice._id, invoiceData);
      
@@ -232,20 +345,28 @@ const ReportsBilling = () => {
       closeEditModal();
     } catch (error) {
       console.error("Error updating invoice:", error);
-      alert("Error updating invoice. Please try again.");
+      console.error("Error details:", error.response?.data);
+      alert(`Error updating invoice: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // NEW: Close edit modal
+  // Close edit modal
   const closeEditModal = () => {
     setShowEditModal(false);
     setEditingInvoice(null);
-    setItems([{ ...defaultInvoiceItem }]);
+    setItems([{
+      ...defaultInvoiceItem,
+      description: "",
+      remarks: "",
+      unitPrice: "",
+      quantity: "",
+      amount: ""
+    }]);
     setSelectedCustomer('');
     setNotes("");
-    setTaxPercent(0);
+    setTaxPercent('0');
     setCurrency('USD');
     setShowItemsTable(false);
   };
@@ -349,8 +470,8 @@ const ReportsBilling = () => {
       // Update invoice with complete data including payment details AND status
       setInvoices(invoices.map(inv =>
         inv._id === selectedInvoice._id
-          ? { 
-              ...result.invoice, 
+          ? {
+              ...result.invoice,
               status: 'paid'
             }
           : inv
@@ -377,7 +498,14 @@ const ReportsBilling = () => {
 
   // Add / Remove / Edit items with auto-calculation
   const handleAddItem = () => {
-    const newItem = { ...defaultInvoiceItem };
+    const newItem = {
+      ...defaultInvoiceItem,
+      description: "",
+      remarks: "",
+      unitPrice: "",
+      quantity: "",
+      amount: ""
+    };
     setItems([...items, newItem]);
     setShowItemsTable(true);
   };
@@ -390,7 +518,7 @@ const ReportsBilling = () => {
     }
   };
 
-  // UPDATED: Handle item changes with auto-calculation
+  // Handle item changes with auto-calculation
   const handleItemChange = (index, field, value) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
@@ -405,7 +533,7 @@ const ReportsBilling = () => {
     setItems(newItems);
   };
 
-  // UPDATED: Total calculation using service function with new fields
+  // Total calculation using service function with new fields
   const totals = calculateInvoiceTotals(items, taxPercent, currency);
 
   // Open invoice modal
@@ -416,18 +544,25 @@ const ReportsBilling = () => {
   // Close invoice modal and reset form
   const closeInvoiceModal = () => {
     setShowInvoiceModal(false);
-    setItems([{ ...defaultInvoiceItem }]);
+    setItems([{
+      ...defaultInvoiceItem,
+      description: "",
+      remarks: "",
+      unitPrice: "",
+      quantity: "",
+      amount: ""
+    }]);
     setSelectedCustomer('');
     setNotes("");
-    setTaxPercent(0);
+    setTaxPercent('0');
     setCurrency('USD');
     setShowItemsTable(false);
   };
 
-  // UPDATED: Handle confirmed email sending with proper backend tracking
+  // Handle confirmed email sending with proper backend tracking
   const handleConfirmSendEmail = async () => {
     const { invoice } = emailConfirmation;
-    
+   
     if (!invoice) {
       setEmailConfirmation({ show: false, invoice: null });
       return;
@@ -475,7 +610,7 @@ const ReportsBilling = () => {
         }
       }
 
-      // ✅ UPDATE BACKEND WITH EMAIL SENT STATUS
+      // UPDATE BACKEND WITH EMAIL SENT STATUS
       try {
         const updateData = {
           status: 'sent',
@@ -500,12 +635,12 @@ const ReportsBilling = () => {
 
         await billingService.updateInvoice(invoice._id, updateData);
        
-        // ✅ Update local state to reflect both status change AND email sent
+        // Update local state to reflect both status change AND email sent
         setInvoices(prevInvoices =>
           prevInvoices.map(inv =>
             inv._id === invoice._id
-              ? { 
-                  ...inv, 
+              ? {
+                  ...inv,
                   status: 'sent',
                   emailSent: true,
                   emailSentAt: new Date()
@@ -513,8 +648,8 @@ const ReportsBilling = () => {
               : inv
           )
         );
-        
-        // ✅ Add to sent emails set for visual feedback
+       
+        // Add to sent emails set for visual feedback
         setSentEmails(prev => {
           const newSet = new Set(prev).add(invoice._id);
           localStorage.setItem('sentInvoices', JSON.stringify([...newSet]));
@@ -541,7 +676,7 @@ const ReportsBilling = () => {
     }
   };
 
-  // UPDATED: Invoice generation with new fields
+  // Invoice generation with new fields and better error handling
   const handleGenerateInvoice = async () => {
     if (!selectedCustomer) {
       alert("Please select a customer.");
@@ -549,16 +684,22 @@ const ReportsBilling = () => {
     }
 
     // Validate items with new fields
-    const invalidItems = items.some((item) => 
-      !item.description.trim() || 
-      !item.unitPrice || 
-      item.unitPrice <= 0 || 
-      !item.quantity || 
-      item.quantity <= 0
+    const invalidItems = items.some((item) =>
+      !item.description.trim() ||
+      !item.unitPrice ||
+      parseFloat(item.unitPrice) <= 0 ||
+      !item.quantity ||
+      parseFloat(item.quantity) <= 0
     );
-    
+   
     if (invalidItems) {
       alert("Please enter valid item descriptions, unit prices, and quantities.");
+      return;
+    }
+
+    // Validate dates
+    if (!invoiceDate) {
+      alert("Please select an invoice date.");
       return;
     }
 
@@ -568,16 +709,18 @@ const ReportsBilling = () => {
         customerId: selectedCustomer,
         items: items.map((item) => ({
           description: item.description,
-          remarks: item.remarks,
+          remarks: item.remarks || "",
           unitPrice: Number(item.unitPrice),
           quantity: Number(item.quantity),
         })),
         invoiceDate,
-        dueDate,
-        taxPercent: Number(taxPercent),
-        notes,
+        dueDate: dueDate || null, // Allow null if no due date
+        taxPercent: Number(taxPercent) || 0,
+        notes: notes || '',
         currency: currency,
       };
+
+      console.log('Sending invoice data:', invoiceData);
 
       const response = await billingService.generateInvoice(invoiceData);
 
@@ -601,7 +744,8 @@ const ReportsBilling = () => {
       closeInvoiceModal();
     } catch (error) {
       console.error("Error generating invoice:", error);
-      alert("Error generating invoice. Please try again.");
+      console.error("Error details:", error.response?.data);
+      alert(`Error generating invoice: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -617,15 +761,22 @@ const ReportsBilling = () => {
     return disabledInvoices.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
-  // NEW: Handle sending email with confirmation popup
+  // Handle sending email with confirmation popup
   const handleSendEmail = async (invoice) => {
     // Show confirmation popup first
     setEmailConfirmation({ show: true, invoice });
   };
 
-  // NEW: Handle cancel email sending
+  // Handle cancel email sending
   const handleCancelSendEmail = () => {
     setEmailConfirmation({ show: false, invoice: null });
+  };
+
+  // Get payment terms info for current customer
+  const getCurrentCustomerPaymentTerms = () => {
+    if (!selectedCustomer) return null;
+    const customer = customers.find(c => c._id === selectedCustomer);
+    return customer?.paymentTerms;
   };
 
   return (
@@ -766,10 +917,10 @@ const ReportsBilling = () => {
                                 </svg>
                               </button>
                             )}
-                            
+                           
                             {/* Edit Button - Disabled when paid OR email has been sent */}
                             <button
-                              className={`inv-action-btn edit ${invoice.status === 'paid' || invoice.emailSent || sentEmails.has(invoice._id) ? 'disabled' : ''}`}
+                              className={`inv-action-btn edit ${(invoice.status === 'paid' || invoice.emailSent || sentEmails.has(invoice._id)) ? 'disabled' : ''}`}
                               onClick={(e) => {
                                 if (invoice.status !== 'paid' && !invoice.emailSent && !sentEmails.has(invoice._id)) {
                                   e.stopPropagation();
@@ -777,7 +928,7 @@ const ReportsBilling = () => {
                                 }
                               }}
                               title={
-                                invoice.status === 'paid' ? 
+                                invoice.status === 'paid' ?
                                   'Cannot edit paid invoices' :
                                 invoice.emailSent || sentEmails.has(invoice._id) ?
                                   'Cannot edit invoices that have been sent' :
@@ -790,7 +941,7 @@ const ReportsBilling = () => {
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                               </svg>
                             </button>
-                            
+                           
                             {/* Download Button - Always available */}
                             <button
                               className="inv-action-btn download"
@@ -946,42 +1097,55 @@ const ReportsBilling = () => {
                 </div>
                
                 <div className="form-section">
+                  {/* ENHANCED: Customer selection with payment terms */}
                   <div className="form-field">
                     <label className="required">Select Customer</label>
                     <select
                       className="form-select"
                       value={selectedCustomer}
-                      onChange={(e) => setSelectedCustomer(e.target.value)}
+                      onChange={(e) => handleCustomerChange(e.target.value)}
                       required
                     >
                       <option value="">-- Select Customer --</option>
                       {customers.map(customer => (
                         <option key={customer._id} value={customer._id}>
                           {customer.name} {customer.company ? `- ${customer.company}` : ""}
+                          {customer.paymentTerms ? ` (${customer.paymentTerms} days)` : ""}
                         </option>
                       ))}
                     </select>
                   </div>
                  
                   <div className="form-grid-2 responsive-form-grid">
+                    {/* ENHANCED: Invoice date with auto-calculation */}
                     <div className="form-field">
                       <label className="required">Invoice Date</label>
                       <input
                         type="date"
                         className="form-input"
                         value={invoiceDate}
-                        onChange={(e) => setInvoiceDate(e.target.value)}
+                        onChange={(e) => handleInvoiceDateChange(e.target.value)}
                       />
                     </div>
                    
+                    {/* ENHANCED: Due date field with auto-calculation and validation */}
                     <div className="form-field">
-                      <label className>Due Date</label>
+                      <label>Due Date {getCurrentCustomerPaymentTerms() && `(Auto-calculated: ${getCurrentCustomerPaymentTerms()} days)`}</label>
                       <input
                         type="date"
                         className="form-input"
                         value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
+                        onChange={(e) => handleDueDateChange(e.target.value)}
+                        placeholder="Auto-calculated from payment terms"
                       />
+                      {selectedCustomer && getCurrentCustomerPaymentTerms() && (
+                        <div className="due-date-info">
+                          <small>
+                            Based on {getCurrentCustomerPaymentTerms()} days payment terms
+                            {dueDate && ` • Calculated: ${calculateDueDate(invoiceDate, getCurrentCustomerPaymentTerms())}`}
+                          </small>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1014,7 +1178,7 @@ const ReportsBilling = () => {
                     />
                   </div>
                  
-                  {/* UPDATED: Items Section with new fields */}
+                  {/* Items Section with new fields */}
                   <div className="invoice-items-section">
                     <div className="section-header">
                       <label className="required">Invoice Items</label>
@@ -1163,22 +1327,22 @@ const ReportsBilling = () => {
                 <div className="card-header">
                   <h3>Confirm Email</h3>
                 </div>
-                
+               
                 <div className="confirmation-content">
                   <p>Are you sure you want to send the invoice <strong>{emailConfirmation.invoice.invoiceNumber}</strong> to <strong>{emailConfirmation.invoice.customerId?.name}</strong>?</p>
                   <p className="confirmation-note">Once sent, the Edit button will be disabled.</p>
                 </div>
-                
+               
                 <div className="confirmation-actions">
-                  <button 
-                    className="cancel-btn" 
+                  <button
+                    className="cancel-btn"
                     onClick={handleCancelSendEmail}
                     disabled={sendingEmail}
                   >
                     Cancel
                   </button>
-                  <button 
-                    className="confirm-btn" 
+                  <button
+                    className="confirm-btn"
                     onClick={handleConfirmSendEmail}
                     disabled={sendingEmail}
                   >
@@ -1210,42 +1374,55 @@ const ReportsBilling = () => {
                 </div>
                
                 <div className="form-section">
+                  {/* ENHANCED: Customer selection with payment terms */}
                   <div className="form-field">
                     <label className="required">Select Customer</label>
                     <select
                       className="form-select"
                       value={selectedCustomer}
-                      onChange={(e) => setSelectedCustomer(e.target.value)}
+                      onChange={(e) => handleCustomerChange(e.target.value)}
                       required
                     >
                       <option value="">-- Select Customer --</option>
                       {customers.map(customer => (
                         <option key={customer._id} value={customer._id}>
                           {customer.name} {customer.company ? `- ${customer.company}` : ""}
+                          {customer.paymentTerms ? ` (${customer.paymentTerms} days)` : ""}
                         </option>
                       ))}
                     </select>
                   </div>
                  
                   <div className="form-grid-2 responsive-form-grid">
+                    {/* ENHANCED: Invoice date with auto-calculation */}
                     <div className="form-field">
                       <label>Invoice Date</label>
                       <input
                         type="date"
                         className="form-input"
                         value={invoiceDate}
-                        onChange={(e) => setInvoiceDate(e.target.value)}
+                        onChange={(e) => handleInvoiceDateChange(e.target.value)}
                       />
                     </div>
                    
+                    {/* ENHANCED: Due date field with auto-calculation and validation */}
                     <div className="form-field">
-                      <label className>Due Date</label>
+                      <label>Due Date {getCurrentCustomerPaymentTerms() && `(Auto-calculated: ${getCurrentCustomerPaymentTerms()} days)`}</label>
                       <input
                         type="date"
                         className="form-input"
                         value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
+                        onChange={(e) => handleDueDateChange(e.target.value)}
+                        placeholder="Auto-calculated from payment terms"
                       />
+                      {selectedCustomer && getCurrentCustomerPaymentTerms() && (
+                        <div className="due-date-info">
+                          <small>
+                            Based on {getCurrentCustomerPaymentTerms()} days payment terms
+                            {dueDate && ` • Calculated: ${calculateDueDate(invoiceDate, getCurrentCustomerPaymentTerms())}`}
+                          </small>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1278,7 +1455,7 @@ const ReportsBilling = () => {
                     />
                   </div>
                  
-                  {/* UPDATED: Items Section with new fields */}
+                  {/* Items Section with new fields */}
                   <div className="invoice-items-section">
                     <div className="section-header">
                       <label className="required">Invoice Items</label>

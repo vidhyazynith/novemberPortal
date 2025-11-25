@@ -4,11 +4,11 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js';
 // Add customer
 export const addCustomer = async (req, res) => {
   try {
-    const { name, email, phone, address, company, customerType, status } = req.body;
+    const { name, email, phone, address, company, customerType, status, paymentTerms } = req.body;
    
     // Validation
     if (!name || !email || !phone) {
-      return res.status(400).json({ message: "Name, email, and phone are required fields" });
+      return res.status(400).json({ message: "Contact Person, email, and phone are required fields" });
     }
 
     // Validate phone number format
@@ -17,6 +17,12 @@ export const addCustomer = async (req, res) => {
       if (!phoneNumber || !phoneNumber.isValid()) {
         return res.status(400).json({ message: 'Invalid phone number format for the selected country' });
       }
+    }
+
+    // Validate payment terms
+    const paymentTermsValue = paymentTerms || 30;
+    if (paymentTermsValue < 0 || paymentTermsValue > 365) {
+      return res.status(400).json({ message: "Payment terms must be between 0 and 365 days" });
     }
  
     // Check if customer already exists with same email
@@ -32,6 +38,7 @@ export const addCustomer = async (req, res) => {
       address: address || '',
       company: company || '',
       customerType: customerType || 'individual',
+      paymentTerms: paymentTermsValue,
       status: status || 'active', // Include status with default value
       joinDate: new Date() // Add join date
     });
@@ -51,7 +58,9 @@ export const getCustomers = async (req, res) => {
     console.log('Customers with status:', customers.map(cust => ({
       name: cust.name,
       email: cust.email,
-      status: cust.status
+      status: cust.status,
+      paymentTerms: cust.paymentTerms,
+      paymentTermsDisplay: cust.paymentTermsDisplay
     })));
     res.json(customers);
   } catch (error) {
@@ -78,7 +87,7 @@ export const getCustomerById = async (req, res) => {
 export const updateCustomer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, phone, ...otherFields } = req.body;
+    const { status, phone, paymentTerms, ...otherFields } = req.body;
 
     // Validate phone number if provided
     if (phone) {
@@ -87,12 +96,19 @@ export const updateCustomer = async (req, res) => {
         return res.status(400).json({ message: 'Invalid phone number format for the selected country' });
       }
     }
+
+    // Validate payment terms if provided
+    const paymentTermsValue = paymentTerms !== undefined ? paymentTerms : otherFields.paymentTerms;
+    if (paymentTermsValue !== undefined && (paymentTermsValue < 0 || paymentTermsValue > 365)) {
+      return res.status(400).json({ message: "Payment terms must be between 0 and 365 days" });
+    }
    
     const updatedCustomer = await Customer.findByIdAndUpdate(
       id,
       {
         ...otherFields,
-        phone: phone || otherFields.phone,
+        ...(phone && { phone }),
+        ...(paymentTerms !== undefined && { paymentTerms }),
         status: status || 'active' // Ensure status is included
       },
       { new: true, runValidators: true }
@@ -102,7 +118,7 @@ export const updateCustomer = async (req, res) => {
       return res.status(404).json({ message: "Customer not found" });
     }
    
-    res.json({ message: "Customer updated successfully", customer: updatedCustomer });
+    res.json({ message: "Updated Customer successfully", customer: updatedCustomer });
   } catch (error) {
     console.error("Error updating customer:", error);
     res.status(500).json({ message: "Error updating customer", error: error.message });
