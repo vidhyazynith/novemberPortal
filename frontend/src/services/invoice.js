@@ -101,6 +101,28 @@ export const billingService = {
       responseType: 'blob'
     });
     return response;
+  },
+   // Add these two new methods:
+  async getInvoiceDownloadUrl(invoiceId) {
+    try {
+      const response = await api.get(`/invoices/${invoiceId}/download-url`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting download URL:', error);
+      throw error;
+    }
+  },
+
+  async downloadInvoiceBlob(invoiceId) {
+    try {
+      const response = await api.get(`/invoices/${invoiceId}/download`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error downloading invoice blob:', error);
+      throw error;
+    }
   }
 };
 
@@ -163,6 +185,19 @@ export const formatInvoiceAmount = (invoice) => {
   const amount = invoice.totalAmount || 0;
   return formatCurrencyDisplay(amount, invoice.currency);
 };
+export const extractErrorMessage = (error) => {
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+  if (error.response?.status === 404) {
+    return "Requested resource not found. Please check if all required data is set up.";
+  }
+  if (error.response?.status === 500) {
+    return "Server error. Please try again later.";
+  }
+  return error.message || "An unexpected error occurred.";
+};
+
 
 export const calculateInvoiceTotals = (items, taxPercent = 0, currency = 'USD') => {
   const subtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);

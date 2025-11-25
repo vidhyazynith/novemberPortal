@@ -39,10 +39,14 @@ export const registerEmployee = async (req, res) => {
  
     console.log('12345678uytrefgh');
  
-    // Validate PAN number format
+    // Validate PAN number format with better error message
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    if (!panRegex.test(panNumber.toUpperCase())) {
-      return res.status(400).json({ message: 'Please enter a valid PAN number (e.g., ABCDE1234F)' });
+    const upperPan = panNumber.toUpperCase();
+    
+    if (!panRegex.test(upperPan)) {
+      return res.status(400).json({ 
+        message: 'Please enter a valid PAN number (e.g., ABCDE1234F). Format: 5 uppercase letters + 4 digits + 1 uppercase letter' 
+      });
     }
  
     // Password validation
@@ -81,7 +85,7 @@ export const registerEmployee = async (req, res) => {
       $or: [
         { email },
         { employeeId: personId },
-        { panNumber: panNumber.toUpperCase() } // Check for duplicate PAN
+        { panNumber: upperPan } // Check for duplicate PAN
       ]
     });
  
@@ -92,7 +96,7 @@ export const registerEmployee = async (req, res) => {
       if (existingEmployee.employeeId === personId) {
         return res.status(400).json({ message: 'Employee already exists with this Employee ID' });
       }
-      if (existingEmployee.panNumber === panNumber.toUpperCase()) {
+      if (existingEmployee.panNumber === upperPan) {
         return res.status(400).json({ message: 'Employee already exists with this PAN number' });
       }
     }
@@ -119,7 +123,7 @@ export const registerEmployee = async (req, res) => {
       department,
       phone: formattedPhone,
       address,
-      panNumber: panNumber.toUpperCase(), // Store as uppercase
+      panNumber: upperPan, // Store as uppercase
       joiningDate: new Date(joiningDate),
       status: status || 'Active'
     });
@@ -235,7 +239,8 @@ export const getEmployeeById = async (req, res) => {
 export const updateEmployee = async (req, res) => {
   try {
     const { panNumber, status, phone, countryCode, ...otherFields } = req.body;
- 
+    const employeeId = req.params.id; // This is the employeeId being updated
+
     const updateData = {
       ...otherFields,
       status: status || 'Active'
@@ -250,25 +255,40 @@ export const updateEmployee = async (req, res) => {
       updateData.phone = phoneNumber.number;
     }
  
-    // Validate PAN if provided
     if (panNumber) {
-      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-      if (!panRegex.test(panNumber.toUpperCase())) {
-        return res.status(400).json({ message: 'Please enter a valid PAN number (e.g., ABCDE1234F)' });
-      }
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+  const upperPan = panNumber.toUpperCase();
+  
+  if (!panRegex.test(upperPan)) {
+    return res.status(400).json({ 
+      message: 'Please enter a valid PAN number (e.g., ABCDE1234F). Format: 5 letters + 4 digits + 1 letter' 
+    });
+  }
  
+  // Get current employee to check if PAN is actually being changed
+      const currentEmployee = await Employee.findOne({ employeeId });
+      
+      if (!currentEmployee) {
+        return res.status(404).json({ message: 'Employee not found' });
+      }
+
+      // Only check for duplicates if PAN is actually being changed
+      if (currentEmployee.panNumber !== upperPan) {
       // Check for existing PAN in another employee
-      const existingEmployeeWithPan = await Employee.findOne({
-        panNumber: panNumber.toUpperCase(),
-        employeeId: { $ne: req.params.id }
-      });
+     const existingEmployeeWithPan = await Employee.findOne({
+    panNumber: upperPan,
+    employeeId: { $ne: employeeId } // Exclude the current employee
+  });
  
-      if (existingEmployeeWithPan) {
-        return res.status(400).json({ message: 'PAN number already exists for another employee' });
-      }
- 
-      updateData.panNumber = panNumber.toUpperCase();
-    }
+       if (existingEmployeeWithPan) {
+    return res.status(400).json({ 
+      message: 'PAN number already exists for another employee' 
+    });
+  }
+}
+
+  updateData.panNumber = upperPan;
+}
  
     const employee = await Employee.findOneAndUpdate(
       { employeeId: req.params.id },

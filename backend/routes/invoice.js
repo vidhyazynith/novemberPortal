@@ -14,7 +14,8 @@ import {
   getDisabledInvoices, // ADD THIS IMPORT
   disableInvoice, // ADD THIS IMPORT
   restoreInvoice, // ADD THIS IMPORT
-  permanentDeleteInvoice // ADD THIS IMPORT
+  permanentDeleteInvoice,// ADD THIS IMPORT
+getInvoiceDownloadUrl
 } from "../Controllers/invoiceController.js";
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 
@@ -48,6 +49,7 @@ router.get('/invoices/:id/payment-proof', getInvoicePaymentProof);
 
 router.post("/verify-payment", upload.single('transactionProof'), verifyPayment);
 router.get('/payment-proofs/:filename', getPaymentProof);
+router.get('/:invoiceId/download-url', getInvoiceDownloadUrl);
 
 
 export default router;

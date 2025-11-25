@@ -24,6 +24,7 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
   const [designations, setDesignations] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [panError, setPanError] = useState(''); 
 
   const [formData, setFormData] = useState({
     personId: '',
@@ -208,48 +209,74 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     return true;
   };
 
-  // Handle update employee
-  const handleUpdateEmployee = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
+// In your Employee.jsx - update the handleUpdateEmployee function
+const handleUpdateEmployee = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
+  setSuccess('');
 
-    // Validate phone number
-    if (!validatePhoneNumber(formData.phone)) {
-      setLoading(false);
-      return;
+  // Validate phone number
+  if (!validatePhoneNumber(formData.phone)) {
+    setLoading(false);
+    return;
+  }
+
+  // Only validate PAN if it's provided and different from current
+  const currentPan = editingEmployee.panNumber;
+  const newPan = formData.panNumber;
+  
+  if (newPan && newPan !== currentPan && !validatePanNumber(newPan)) {
+    setLoading(false);
+    return;
+  }
+
+  try {
+    const updateData = { ...formData };
+
+    // ✅ Remove password field if empty (don't overwrite password)
+    if (!updateData.password) {
+      delete updateData.password;
     }
 
-    try {
-      const updateData = { ...formData };
+    // ✅ Remove PAN field if it hasn't changed (to avoid unnecessary validation)
+    if (newPan === currentPan) {
+      delete updateData.panNumber;
+    }
 
-      // ✅ Remove password field if empty (don't overwrite password)
-      if (!updateData.password) {
-        delete updateData.password;
-      }
+    // ✅ Perform update
+    await employeeService.updateEmployee(editingEmployee.employeeId, updateData);
 
-      // ✅ Perform update
-      await employeeService.updateEmployee(editingEmployee.employeeId, updateData);
+    setSuccess('✅ Employee updated successfully!');
+    setShowAddForm(false);
+    setEditingEmployee(null);
+    setPhoneError(''); // Clear phone error on success
+    setPanError(''); // Clear PAN error on success
 
-      setSuccess('✅ Employee updated successfully!');
-      setShowAddForm(false);
-      setEditingEmployee(null);
-      setPhoneError(''); // Clear phone error on success
+    await loadEmployees();
 
-      await loadEmployees();
+    if (onEmployeeUpdate) {
+      onEmployeeUpdate();
+    }
 
-      if (onEmployeeUpdate) {
-        onEmployeeUpdate();
-      }
-
-    } catch (error) {
-      console.error('Error updating employee:', error);
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    
+    // Handle specific PAN duplicate error
+    if (error.response?.data?.message?.includes('PAN number already exists')) {
+      setPanError('PAN number already exists for another employee');
+    } 
+    // Handle PAN format validation error from backend
+    else if (error.response?.data?.message?.includes('PAN number')) {
+      setPanError(error.response.data.message);
+    }
+    else {
       setError(error.response?.data?.message || '❌ Failed to update employee. Please try again.');
-    } finally {
-      setLoading(false);
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Handle add button click
   const handleAddButtonClick = async () => {
@@ -320,9 +347,15 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     setLoading(true);
     setError('');
     setSuccess('');
+    setPanError(''); // Clear previous PAN errors
+
 
     // Validate phone number
     if (!validatePhoneNumber(formData.phone)) {
+      setLoading(false);
+      return;
+    }
+    if (!validatePanNumber(formData.panNumber)) {
       setLoading(false);
       return;
     }
@@ -348,6 +381,7 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
       setShowAddForm(false);
       setEditingEmployee(null);
       setPhoneError(''); // Clear phone error on success
+      setPanError(''); // Clear PAN error on success
 
       // ✅ Reload employees list
       await loadEmployees();
@@ -360,21 +394,64 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     } catch (error) {
       console.error('Registration error:', error);
 
-      if (error.response?.data?.message?.includes('already exists')) {
-        const newId = await generateNextEmployeeId();
-        setFormData(prev => ({
-          ...prev,
-          personId: newId
-        }));
-        setError(`⚠️ Employee ID was taken. New ID generated: ${newId}. Please review and submit again.`);
-      } else {
-        setError(error.response?.data?.message || 'Registration failed. Please try again.');
-      }
 
-    } finally {
-      setLoading(false);
+    // Handle specific error cases with proper error messages
+    if (error.response?.data?.message) {
+      const errorMessage = error.response.data.message;
+
+      // Handle PAN-related errors
+      if (errorMessage.includes('PAN number') || errorMessage.includes('PAN')) {
+        if (errorMessage.includes('already exists')) {
+          setPanError('PAN number already exists for another employee');
+        } else if (errorMessage.includes('valid')) {
+          setPanError('Please enter a valid PAN number (e.g., ABCDE1234F)');
+        } else {
+          setPanError(errorMessage);
+        }
+      }
+      // Handle email or Person ID duplicate errors
+      else if (errorMessage.includes('email') || errorMessage.includes('Person ID') || errorMessage.includes('User already exists')) {
+        setError(errorMessage);
+        
+        // If it's an Employee ID conflict, generate a new one
+        if (errorMessage.includes('Person ID') || errorMessage.includes('Employee ID')) {
+          const newId = await generateNextEmployeeId();
+          setFormData(prev => ({
+            ...prev,
+            personId: newId
+          }));
+          setError(`${errorMessage}. New ID generated: ${newId}. Please review and submit again.`);
+        }
+      }
+      // Handle employee duplicate errors (email, employee ID, PAN)
+      else if (errorMessage.includes('Employee already exists')) {
+        if (errorMessage.includes('email')) {
+          setError('An employee with this email already exists. Please use a different email address.');
+        } else if (errorMessage.includes('Employee ID')) {
+          const newId = await generateNextEmployeeId();
+          setFormData(prev => ({
+            ...prev,
+            personId: newId
+          }));
+          setError(`Employee ID already exists. New ID generated: ${newId}. Please review and submit again.`);
+        } else if (errorMessage.includes('PAN number')) {
+          setPanError('PAN number already exists for another employee');
+        } else {
+          setError(errorMessage);
+        }
+      }
+      // Handle all other errors
+      else {
+        setError(errorMessage);
+      }
+    } else {
+      setError('Registration failed. Please try again.');
     }
-  };
+
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleEditEmployee = (employee) => {
     setEditingEmployee(employee);
@@ -395,22 +472,29 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     setShowAddForm(true);
   };
 
-  const handleInputChange = (e) => {
+ const handleInputChange = (e) => {
     const { name, value } = e.target;
    
-    // Convert PAN number to uppercase as user types
     if (name === 'panNumber') {
+      const upperValue = value.toUpperCase();
       setFormData({
         ...formData,
-        [name]: value.toUpperCase()
+        [name]: upperValue
       });
+      
+// Real-time PAN validation
+    if (upperValue) {
+      validatePanNumber(upperValue, !!editingEmployee, editingEmployee?.panNumber);
     } else {
-      setFormData({
-        ...formData,
-        [name]: value
-      });
+      setPanError('PAN number is required');
     }
-  };
+  } else {
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  }
+};
 
   const handlePhoneChange = (value) => {
     setFormData({
@@ -434,7 +518,8 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     setShowAddForm(false);
     setEditingEmployee(null);
     setError('');
-    setPhoneError(''); // Clear phone error when closing modal
+    setPhoneError('');
+    setPanError(''); // Clear PAN error when closing modal
     setFormAttempts(0);
   };
 
@@ -466,11 +551,31 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
   // Sort the filtered employees by Employee ID
   const sortedEmployees = sortEmployeesById(statusFilteredEmployees);
 
-  // Validate PAN number format
-  const validatePanNumber = (pan) => {
-    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    return panRegex.test(pan);
-  };
+// Enhanced PAN validation function
+const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
+  if (!pan) {
+    setPanError('PAN number is required');
+    return false;
+  }
+  
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+  const isValid = panRegex.test(pan);
+  
+  if (!isValid) {
+    setPanError('Invalid PAN format. Must be 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)');
+    return false;
+  }
+  
+  // For updates, if PAN hasn't changed, it's valid
+  if (isUpdate && pan === currentPan) {
+    setPanError('');
+    return true;
+  }
+  
+  setPanError('');
+  return true;
+};
+
 
   return (
     <div className="employee-management">
@@ -825,9 +930,17 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
                     title="Please enter a valid PAN number (e.g., ABCDE1234F)"
                     required
                     maxLength="10"
-                    className={formData.panNumber && !validatePanNumber(formData.panNumber) ? 'invalid-input' : ''}
+                    className={panError ? 'invalid-input' : ''}
                   />
-                  <small>Format: ABCDE1234F (5 letters, 4 digits, 1 letter)</small>
+                  {panError ? (
+                    <small className="error-text" style={{ color: '#dc2626', marginTop: '4px' }}>
+                      {panError}
+                    </small>
+                  ) : (
+                    <small style={{ color: '#64748b', marginTop: '6px' }}>
+                      Format: ABCDE1234F (5 letters, 4 digits, 1 letter)
+                    </small>
+                  )}
                 </div>
               </div>
 
@@ -888,7 +1001,7 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
                 <button
                   type="submit"
                   className="submit-btn"
-                  disabled={loading || categoriesLoading || (formData.panNumber && !validatePanNumber(formData.panNumber)) || phoneError}
+                  disabled={loading || categoriesLoading || panError || phoneError ||!formData.panNumber}
                 >
                   {loading ? 'Saving...' : (editingEmployee ? 'Update Employee' : 'Add Employee')}
                 </button>

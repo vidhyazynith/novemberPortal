@@ -64,6 +64,43 @@ const getAmountInWords = (amount, currency) => {
   }
 };
 
+
+// Get invoice download URL for email attachment
+export const getInvoiceDownloadUrl = async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    
+    console.log('📧 Generating download URL for invoice:', invoiceId);
+
+    // Get invoice data
+    const invoice = await Invoice.findById(invoiceId).populate("customerId");
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Return the PDF download URL
+    const downloadUrl = `${req.protocol}://${req.get('host')}/api/invoices/${invoiceId}/download`;
+    const fileName = `Invoice-${invoice.invoiceNumber || invoiceId}.pdf`;
+    
+    console.log('✅ Generated download URL:', { downloadUrl, fileName });
+
+    res.json({
+      success: true,
+      downloadUrl: downloadUrl,
+      fileName: fileName,
+      invoiceNumber: invoice.invoiceNumber
+    });
+
+  } catch (error) {
+    console.error('❌ Error generating download URL:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate download URL', 
+      details: error.message 
+    });
+  }
+};
+
+
 // Format currency amount based on currency type
 const formatCurrencyAmount = (amount, currency) => {
   if (currency === 'INR') {
@@ -490,7 +527,15 @@ export const generateInvoice = async (req, res) => {
     //     signature: { url: '' }
     //   });
     // }
-
+if (!company.companyName || !company.address) {
+      console.log('❌ Company information incomplete:', {
+        hasCompanyName: !!company.companyName,
+        hasAddress: !!company.address
+      });
+      return res.status(400).json({ 
+        message: "Company information is incomplete. Please complete company details in Company Settings." 
+      });
+    }
     let logoBuffer = null;
     let signatureBuffer = null;
  
@@ -554,7 +599,7 @@ export const generateInvoice = async (req, res) => {
       subtotal,
       notes,
       currency: currency || "USD",
-      status: "sent"
+      status: "draft"
     });
     await invoice.save();
 
@@ -936,17 +981,17 @@ export const downloadInvoice = async (req, res) => {
 
     // Fetch or create company info
     let company = await Company.findOne();
-   
-    if (!company) {
-      company = {
-        companyName: 'Zynith IT Solutions',
-        address: '123 Business Street, City, State 12345',
-        phone: '+1 (555) 123-4567',
-        email: 'contact@zynith-it.com',
-        taxId: 'TAX-123456789',
-        logo: { url: '' },
-        signature: { url: '' }
-      };
+   if (!company) {
+      console.log('❌ Company information not found for download');
+      return res.status(404).json({ 
+        message: "Company information not found. Please set up company details first in Company Settings." 
+      });
+    }
+     if (!company.companyName || !company.address) {
+      console.log('❌ Company information incomplete for download');
+      return res.status(400).json({ 
+        message: "Company information is incomplete. Please complete company details in Company Settings." 
+      });
     }
 
     let logoBuffer = null;

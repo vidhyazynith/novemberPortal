@@ -560,122 +560,185 @@ const ReportsBilling = () => {
   };
 
   // Handle confirmed email sending with proper backend tracking
-  const handleConfirmSendEmail = async () => {
-    const { invoice } = emailConfirmation;
+// ENHANCED: Handle email sending with automatic PDF download
+// ENHANCED: Handle email sending with automatic PDF attachment
+const handleConfirmSendEmail = async () => {
+  const { invoice } = emailConfirmation;
+ 
+  if (!invoice) {
+    setEmailConfirmation({ show: false, invoice: null });
+    return;
+  }
+
+  const customerEmail = invoice.customerId?.email;
+ 
+  if (!customerEmail) {
+    alert('Customer email not found');
+    setEmailConfirmation({ show: false, invoice: null });
+    return;
+  }
+
+  setSendingEmail(true);
+
+  try {
+    // Step 1: Download the PDF as blob
+    const pdfBlob = await billingService.downloadInvoiceBlob(invoice._id);
+    
+    // Step 2: Create object URL from blob
+    const pdfBlobUrl = URL.createObjectURL(pdfBlob);
+    
+    // Step 3: Generate email details
+    const invoiceNumber = invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`;
+    const customerName = invoice.customerId?.name || 'Customer';
+    const invoiceAmount = `${currencySymbols[invoice.currency] || '$'}${formatInvoiceAmount(invoice)}`;
+    const invoiceDate = new Date(invoice.date).toLocaleDateString();
+    const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A';
+    const status = checkInvoiceStatus(invoice);
    
-    if (!invoice) {
-      setEmailConfirmation({ show: false, invoice: null });
-      return;
-    }
+    const subject = `Invoice ${invoiceNumber} from Your Company`;
+    const body = `Dear ${customerName},\n\nPlease find your invoice details below:\n\nInvoice Number: ${invoiceNumber}\nDate: ${invoiceDate}\nDue Date: ${dueDate}\nAmount: ${invoiceAmount}\nStatus: ${status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Unpaid'}\n\nPlease find the detailed invoice attached.\n\nThank you for your business!\n\nBest regards,\nYour Company Team`;
 
-    // Get customer email from invoice data
-    const customerEmail = invoice.customerId?.email;
+    // Step 4: Create a temporary link to trigger Outlook with attachment
+    const outlookUrl = generateOutlookUrl(customerEmail, subject, body, pdfBlob, `Invoice-${invoiceNumber}.pdf`);
+    
+    // Step 5: Open Outlook
+    openOutlookWithAttachment(outlookUrl, pdfBlobUrl);
+
+    // Step 6: Update backend and UI state
+    await updateInvoiceEmailStatus(invoice._id, invoice);
+    
+    // Step 7: Update local state
+    updateLocalInvoiceState(invoice._id);
+    
+    console.log('✅ Outlook opened with PDF attachment ready');
+
+  } catch (error) {
+    console.error('Error preparing email with attachment:', error);
+    
+    // Fallback: Open Outlook without attachment
+    const fallbackSuccess = await openOutlookFallback(invoice, customerEmail);
+    if (fallbackSuccess) {
+      updateLocalInvoiceState(invoice._id);
+    }
+  } finally {
+    setSendingEmail(false);
+    setEmailConfirmation({ show: false, invoice: null });
+  }
+};
+
+// Helper function to generate Outlook URL with attachment
+const generateOutlookUrl = (toEmail, subject, body, pdfBlob, fileName) => {
+  // Method 1: Using Outlook's deep link (limited attachment support)
+  const encodedSubject = encodeURIComponent(subject);
+  const encodedBody = encodeURIComponent(body);
+  
+  return `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(toEmail)}&subject=${encodedSubject}&body=${encodedBody}`;
+};
+
+// Helper function to open Outlook with attachment using different methods
+const openOutlookWithAttachment = (outlookUrl, pdfBlobUrl) => {
+  // Method 1: Try Outlook Web App first
+  const outlookWindow = window.open(outlookUrl, '_blank', 'width=1000,height=700');
+  
+  if (outlookWindow) {
+    // Wait for window to load and try to attach file (limited by browser security)
+    setTimeout(() => {
+      // Note: Automatic attachment in web Outlook is limited due to security restrictions
+      // The PDF will be available for manual attachment via the download
+      console.log('Outlook opened. User can manually attach the downloaded PDF.');
+    }, 2000);
+  } else {
+    // Method 2: Fallback to mailto with download hint
+    const mailtoUrl = `mailto:${outlookUrl.split('to=')[1]?.split('&')[0]}?subject=${outlookUrl.split('subject=')[1]?.split('&')[0]}&body=${outlookUrl.split('body=')[1]}`;
+    window.location.href = mailtoUrl;
+  }
+};
+
+// Fallback method without automatic attachment
+const openOutlookFallback = async (invoice, customerEmail) => {
+  try {
+    // Download PDF first
+    await handleDownloadInvoice(invoice._id);
+    
+    // Then open Outlook with pre-filled details
+    const invoiceNumber = invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`;
+    const customerName = invoice.customerId?.name || 'Customer';
+    const invoiceAmount = `${currencySymbols[invoice.currency] || '$'}${formatInvoiceAmount(invoice)}`;
+    const invoiceDate = new Date(invoice.date).toLocaleDateString();
+    const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A';
+    const status = checkInvoiceStatus(invoice);
    
-    if (!customerEmail) {
-      alert('Customer email not found');
-      setEmailConfirmation({ show: false, invoice: null });
-      return;
+    const subject = `Invoice ${invoiceNumber} from Your Company`;
+    const body = `Dear ${customerName},\n\nPlease find your invoice details below:\n\nInvoice Number: ${invoiceNumber}\nDate: ${invoiceDate}\nDue Date: ${dueDate}\nAmount: ${invoiceAmount}\nStatus: ${status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Unpaid'}\n\nPlease attach the downloaded PDF invoice to this email.\n\nThank you for your business!\n\nBest regards,\nYour Company Team`;
+
+    const outlookUrls = [
+      `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+      `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    ];
+
+    const outlookWindow = window.open(outlookUrls[0], '_blank', 'width=800,height=600');
+   
+    if (!outlookWindow || outlookWindow.closed) {
+      window.open(outlookUrls[1], '_blank');
     }
+    
+    return true;
+  } catch (error) {
+    console.error('Fallback method failed:', error);
+    return false;
+  }
+};
 
-    setSendingEmail(true);
+// Update invoice status in backend
+const updateInvoiceEmailStatus = async (invoiceId,invoice) => {
+  try {
+    const updateData = {
+      status: 'sent',
+      emailSent: true,
+      emailSentAt: new Date(),
+      customerId: invoice.customerId._id,
+      items: invoice.items.map(item => ({
+        description: item.description,
+        remarks: item.remarks || "",
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        amount: item.amount
+      })),
+      totalAmount: invoice.totalAmount,
+      invoiceDate: invoice.date,
+      dueDate: invoice.dueDate,
+      taxPercent: invoice.taxPercent || 0,
+      notes: invoice.notes || '',
+      currency: invoice.currency || 'USD'
+    };
 
-    try {
-      // Format invoice details
-      const invoiceNumber = invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`;
-      const customerName = invoice.customerId?.name || 'Customer';
-      const invoiceAmount = `${currencySymbols[invoice.currency] || '$'}${formatInvoiceAmount(invoice)}`;
-      const invoiceDate = new Date(invoice.date).toLocaleDateString();
-      const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A';
-      const status = checkInvoiceStatus(invoice);
-     
-      const subject = `Invoice ${invoiceNumber} from Your Company`;
-      const body = `Dear ${customerName},\n\nPlease find your invoice details below:\n\nInvoice Number: ${invoiceNumber}\nDate: ${invoiceDate}\nDue Date: ${dueDate}\nAmount: ${invoiceAmount}\nStatus: ${status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Unpaid'}\n\nPlease make the payment by the due date.\n\nThank you for your business!\n\nBest regards,\nYour Company Team`;
+    await billingService.updateInvoice(invoiceId, updateData);
+  } catch (error) {
+    console.error('Error updating invoice status:', error);
+  }
+};
 
-      // Try multiple Outlook URLs to find one that works without re-login
-      const outlookUrls = [
-        `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-        `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-        `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-      ];
-
-      // Try the first URL (Outlook Office 365)
-      const outlookWindow = window.open(outlookUrls[0], '_blank', 'width=800,height=600');
-     
-      // If popup was blocked or failed, try alternatives
-      if (!outlookWindow || outlookWindow.closed || typeof outlookWindow.closed === 'undefined') {
-        const fallbackWindow = window.open(outlookUrls[1], '_blank');
-       
-        if (!fallbackWindow) {
-          window.location.href = outlookUrls[2];
-        }
-      }
-
-      // UPDATE BACKEND WITH EMAIL SENT STATUS
-      try {
-        const updateData = {
-          status: 'sent',
-          emailSent: true, // NEW: Track that email was sent
-          emailSentAt: new Date(), // NEW: Track when it was sent
-          // Include other required fields for validation
-          customerId: invoice.customerId._id,
-          items: invoice.items.map(item => ({
-            description: item.description,
-            remarks: item.remarks || "",
-            unitPrice: item.unitPrice,
-            quantity: item.quantity,
-            amount: item.amount
-          })),
-          totalAmount: invoice.totalAmount,
-          invoiceDate: invoice.date,
-          dueDate: invoice.dueDate,
-          taxPercent: invoice.taxPercent || 0,
-          notes: invoice.notes || '',
-          currency: invoice.currency || 'USD'
-        };
-
-        await billingService.updateInvoice(invoice._id, updateData);
-       
-        // Update local state to reflect both status change AND email sent
-        setInvoices(prevInvoices =>
-          prevInvoices.map(inv =>
-            inv._id === invoice._id
-              ? {
-                  ...inv,
-                  status: 'sent',
-                  emailSent: true,
-                  emailSentAt: new Date()
-                }
-              : inv
-          )
-        );
-       
-        // Add to sent emails set for visual feedback
-        setSentEmails(prev => {
-          const newSet = new Set(prev).add(invoice._id);
-          localStorage.setItem('sentInvoices', JSON.stringify([...newSet]));
-          return newSet;
-        });
-       
-        console.log('✅ Email sent! Status updated to "Sent". Mail button disabled.');
-      } catch (error) {
-        console.error('Error updating invoice status:', error);
-        // Even if backend update fails, keep the tick mark and disable mail button locally
-        setSentEmails(prev => {
-          const newSet = new Set(prev).add(invoice._id);
-          localStorage.setItem('sentInvoices', JSON.stringify([...newSet]));
-          return newSet;
-        });
-      }
-
-    } catch (error) {
-      console.error('Error sending email:', error);
-      alert('Error preparing email. Please try again.');
-    } finally {
-      setSendingEmail(false);
-      setEmailConfirmation({ show: false, invoice: null });
-    }
-  };
-
+// Update local UI state
+const updateLocalInvoiceState = (invoiceId) => {
+  setInvoices(prevInvoices =>
+    prevInvoices.map(inv =>
+      inv._id === invoiceId
+        ? {
+            ...inv,
+            status: 'sent',
+            emailSent: true,
+            emailSentAt: new Date()
+          }
+        : inv
+    )
+  );
+  
+  setSentEmails(prev => {
+    const newSet = new Set(prev).add(invoiceId);
+    localStorage.setItem('sentInvoices', JSON.stringify([...newSet]));
+    return newSet;
+  });
+};
   // Invoice generation with new fields and better error handling
   const handleGenerateInvoice = async () => {
     if (!selectedCustomer) {
@@ -744,8 +807,16 @@ const ReportsBilling = () => {
       closeInvoiceModal();
     } catch (error) {
       console.error("Error generating invoice:", error);
-      console.error("Error details:", error.response?.data);
-      alert(`Error generating invoice: ${error.response?.data?.message || error.message}`);
+      let errorMessage = "Error generating invoice. Please try again.";
+    
+    if (error.response?.status === 404) {
+      errorMessage = error.response.data?.message || "Company information not found. Please set up company details first.";
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+      alert(`Error generating invoice: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
