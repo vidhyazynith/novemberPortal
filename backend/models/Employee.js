@@ -36,8 +36,31 @@ const employeeSchema = new mongoose.Schema(
       required: true,
     },
     address: {
-      type: String,
-      required: true,
+      addressLine1: {
+        type: String,
+        required: true
+      },
+      addressLine2: {
+        type: String,
+        default: ''
+      },
+      country: {
+        type: String,
+        required: true
+      },
+      state: {
+        type: String,
+        required: true
+      },
+      city: {
+        type: String,
+        required: true
+      },
+      pinCode: {
+        type: String,
+        required: true,
+        // match: [/^[1-9][0-9]{5}$/, 'Please enter a valid 6-digit PIN code']
+      }
     },
     photo: {
       type: String,

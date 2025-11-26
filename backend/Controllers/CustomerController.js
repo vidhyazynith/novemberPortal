@@ -1,4 +1,5 @@
 import Customer from "../models/Customer.js";
+import User from "../models/User.js"; // ADD THIS IMPORT
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
  
 // Add customer
@@ -25,6 +26,13 @@ export const addCustomer = async (req, res) => {
       return res.status(400).json({ message: "Payment terms must be between 0 and 365 days" });
     }
  
+     const lowerEmail = email.toLowerCase();
+ 
+    // ✅ Check if email exists in User collection (including admin/employee users)
+    const existingUser = await User.findOne({ email: lowerEmail });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already exists in the system" });
+    }
     // Check if customer already exists with same email
     const existingCustomer = await Customer.findOne({ email });
     if (existingCustomer) {
@@ -33,7 +41,7 @@ export const addCustomer = async (req, res) => {
  
     const newCustomer = new Customer({
       name,
-      email,
+      email:lowerEmail,
       phone,
       address: address || '',
       company: company || '',
@@ -47,6 +55,14 @@ export const addCustomer = async (req, res) => {
     res.status(201).json({ message: "Customer added successfully", customer: newCustomer });
   } catch (error) {
     console.error("Error adding customer:", error);
+      // Handle duplicate key errors
+    if (error.code === 11000) {
+      if (error.keyPattern && error.keyPattern.email) {
+        return res.status(400).json({
+          message: 'Email already exists. Please use a different email.'
+        });
+      }
+    }
     res.status(500).json({ message: "Error adding customer", error: error.message });
   }
 };
@@ -87,7 +103,7 @@ export const getCustomerById = async (req, res) => {
 export const updateCustomer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, phone, paymentTerms, ...otherFields } = req.body;
+    const { status, phone, paymentTerms,email, ...otherFields } = req.body;
 
     // Validate phone number if provided
     if (phone) {
@@ -102,6 +118,38 @@ export const updateCustomer = async (req, res) => {
     if (paymentTermsValue !== undefined && (paymentTermsValue < 0 || paymentTermsValue > 365)) {
       return res.status(400).json({ message: "Payment terms must be between 0 and 365 days" });
     }
+    
+    // ✅ Validate email if provided AND if it's different from current email
+    if (typeof email !== 'undefined') {
+      // Get current customer to check if email is actually being changed
+      const currentCustomer = await Customer.findById(id);
+      
+      if (!currentCustomer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const lowerEmail = email.toLowerCase();
+
+      // Only check for duplicates if email is actually being changed
+      if (currentCustomer.email !== lowerEmail) {
+        // ✅ Check if email exists in User collection (including admin users)
+        const existingUser = await User.findOne({ email: lowerEmail });
+        if (existingUser) {
+          return res.status(400).json({ message: 'Email already exists in the system' });
+        }
+
+        // ✅ Check if email exists in another customer
+        const existingCustomerWithEmail = await Customer.findOne({
+          email: lowerEmail,
+          _id: { $ne: id } // Exclude the current customer
+        });
+
+        if (existingCustomerWithEmail) {
+          return res.status(400).json({ message: 'Customer with this email already exists' });
+        }
+      }
+    }
+   
    
     const updatedCustomer = await Customer.findByIdAndUpdate(
       id,
@@ -109,7 +157,9 @@ export const updateCustomer = async (req, res) => {
         ...otherFields,
         ...(phone && { phone }),
         ...(paymentTerms !== undefined && { paymentTerms }),
+        ...(email && { email: email.toLowerCase() }),
         status: status || 'active' // Ensure status is included
+
       },
       { new: true, runValidators: true }
     );
@@ -121,6 +171,15 @@ export const updateCustomer = async (req, res) => {
     res.json({ message: "Updated Customer successfully", customer: updatedCustomer });
   } catch (error) {
     console.error("Error updating customer:", error);
+      
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      if (error.keyPattern && error.keyPattern.email) {
+        return res.status(400).json({
+          message: 'Email already exists. Please use a different email.'
+        });
+      }
+    }
     res.status(500).json({ message: "Error updating customer", error: error.message });
   }
 };

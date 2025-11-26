@@ -27,17 +27,23 @@ export const registerEmployee = async (req, res) => {
     if (!personId || !email || !password || !name || !designation || !department || !phone || !address || !panNumber || !joiningDate) {
       return res.status(400).json({ message: 'All fields are required' });
     }
- 
+     // Validate address object
+    if (!address.addressLine1 || !address.country || !address.state || !address.city || !address.pinCode) {
+      return res.status(400).json({ message: 'All address fields are required' });
+    }
+  // Validate PIN code format
+    // const pinRegex = /^[1-9][0-9]{5}$/;
+    // if (!pinRegex.test(address.pinCode)) {
+    //   return res.status(400).json({ message: 'Please enter a valid 6-digit PIN code' });
+    // }
+
     const phoneNumber = parsePhoneNumberFromString(`${countryCode}${phone}`);
     if (!phoneNumber || !phoneNumber.isValid()) {
       return res.status(400).json({ message: 'Invalid phone number format for the selected country' });
     }
  
-    console.log('nmberrrrrrrrrrrrrr');
     // ✅ Standardize phone format
     const formattedPhone = phoneNumber.number; // e.g. +919876543210
- 
-    console.log('12345678uytrefgh');
  
     // Validate PAN number format with better error message
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -71,47 +77,39 @@ export const registerEmployee = async (req, res) => {
       return res.status(400).json({ message: 'Invalid employee ID format. Must be ZIC followed by 3 digits (e.g., ZIC001)' });
     }
  
-    // Check if user exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { personId }]
-    });
- 
+    // ✅ Check if email exists in User collection (including admin users)
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists with this email or Person ID' });
+      return res.status(400).json({ message: 'Email already exists in the system' });
     }
- 
-    // Check if employee already exists
-    const existingEmployee = await Employee.findOne({
-      $or: [
-        { email },
-        { employeeId: personId },
-        { panNumber: upperPan } // Check for duplicate PAN
-      ]
-    });
- 
-    if (existingEmployee) {
-      if (existingEmployee.email === email) {
-        return res.status(400).json({ message: 'Employee already exists with this email' });
-      }
-      if (existingEmployee.employeeId === personId) {
-        return res.status(400).json({ message: 'Employee already exists with this Employee ID' });
-      }
-      if (existingEmployee.panNumber === upperPan) {
-        return res.status(400).json({ message: 'Employee already exists with this PAN number' });
-      }
+
+    // ✅ Check if email exists in Employee collection
+    const existingEmployeeByEmail = await Employee.findOne({ email: email.toLowerCase() });
+    if (existingEmployeeByEmail) {
+      return res.status(400).json({ message: 'Email already exists for another employee' });
     }
- 
-    
- 
+
+    // ✅ Check if employee ID exists
+    const existingEmployeeById = await Employee.findOne({ employeeId: personId });
+    if (existingEmployeeById) {
+      return res.status(400).json({ message: 'Employee ID already exists' });
+    }
+
+    // ✅ Check if PAN exists
+    const existingEmployeeByPan = await Employee.findOne({ panNumber: upperPan });
+    if (existingEmployeeByPan) {
+      return res.status(400).json({ message: 'PAN number already exists for another employee' });
+    }
+
     // ✅ Create user
     const user = new User({
       personId,
-      email,
+      email: email.toLowerCase(),
       password,
       role: "employee",
       createdBy: req.user._id,
     });
- 
+
    await user.save();
  
     // Create employee record
@@ -122,7 +120,14 @@ export const registerEmployee = async (req, res) => {
       designation,
       department,
       phone: formattedPhone,
-      address,
+       address: {
+        addressLine1: address.addressLine1,
+        addressLine2: address.addressLine2 || '',
+        country: address.country,
+        state: address.state,
+        city: address.city,
+        pinCode: address.pinCode
+      },
       panNumber: upperPan, // Store as uppercase
       joiningDate: new Date(joiningDate),
       status: status || 'Active'
@@ -238,14 +243,20 @@ export const getEmployeeById = async (req, res) => {
 // Update employee
 export const updateEmployee = async (req, res) => {
   try {
-    const { panNumber, status, phone, countryCode, ...otherFields } = req.body;
+    const { panNumber, status, phone, countryCode, address,email, ...otherFields } = req.body;
     const employeeId = req.params.id; // This is the employeeId being updated
 
     const updateData = {
       ...otherFields,
       status: status || 'Active'
     };
- 
+   // Validate address if provided
+    // if (address) {
+    //   if (address.pinCode && !/^[1-9][0-9]{5}$/.test(address.pinCode)) {
+    //     return res.status(400).json({ message: 'Please enter a valid 6-digit PIN code' });
+    //   }
+    //   updateData.address = address;
+    // }
     // Validate phone only if provided
     if (typeof phone !== 'undefined') {
       const phoneNumber = parsePhoneNumberFromString(`${countryCode}${phone}`);
@@ -255,6 +266,39 @@ export const updateEmployee = async (req, res) => {
       updateData.phone = phoneNumber.number;
     }
  
+    // ✅ Validate email if provided AND if it's different from current email
+    if (typeof email !== 'undefined') {
+      // Get current employee to check if email is actually being changed
+      const currentEmployee = await Employee.findOne({ employeeId });
+      
+      if (!currentEmployee) {
+        return res.status(404).json({ message: 'Employee not found' });
+      }
+
+      const lowerEmail = email.toLowerCase();
+
+      // Only check for duplicates if email is actually being changed
+      if (currentEmployee.email !== lowerEmail) {
+        // ✅ Check if email exists in User collection (including admin users)
+        const existingUser = await User.findOne({ email: lowerEmail });
+        if (existingUser) {
+          return res.status(400).json({ message: 'Email already exists in the system' });
+        }
+
+        // ✅ Check if email exists in another employee
+        const existingEmployeeWithEmail = await Employee.findOne({
+          email: lowerEmail,
+          employeeId: { $ne: employeeId } // Exclude the current employee
+        });
+
+        if (existingEmployeeWithEmail) {
+          return res.status(400).json({ message: 'Email already exists for another employee' });
+        }
+      }
+
+      updateData.email = lowerEmail;
+    }
+
     if (panNumber) {
   const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
   const upperPan = panNumber.toUpperCase();
@@ -291,8 +335,8 @@ export const updateEmployee = async (req, res) => {
 }
  
     const employee = await Employee.findOneAndUpdate(
-      { employeeId: req.params.id },
-      updateData,
+      { employeeId: employeeId },
+      {$set: updateData},
       { new: true, runValidators: true }
     );
  
@@ -323,6 +367,11 @@ export const updateEmployee = async (req, res) => {
       if (error.keyPattern && error.keyPattern.panNumber) {
         return res.status(400).json({
           message: 'PAN number already exists. Please use a different PAN number.'
+        });
+      }
+       if (error.keyPattern && error.keyPattern.email) {
+        return res.status(400).json({
+          message: 'Email already exists. Please use a different email.'
         });
       }
     }
@@ -424,4 +473,130 @@ export const searchEmployees = async (req, res) => {
     res.status(500).json({ message: 'Server error while searching employees' });
   }
 };
- 
+
+
+// Get countries from external API
+// Get states by country
+export const getCountries = async (req, res) => {
+  try {
+    console.log('🌍 Fetching countries list...');
+
+    // Use REST Countries API
+    const response = await axios.get('https://restcountries.com/v3.1/all?fields=name,cca2,cca3');
+    console.log('✅ Countries API response received');
+   
+    const countries = response.data.map(country => ({
+      id: country.cca2,
+      code: country.cca2,
+      name: country.name.common
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    console.log(`✅ Found ${countries.length} countries`);
+   
+    return res.json({
+      success: true,
+      countries
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching countries:', error.message);
+   
+    // Return a proper error response
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch countries list',
+      details: error.message
+    });
+  }
+};
+
+//-------------------------
+// Get employee statistics
+export const getEmployeeStats = async (req, res) => {
+  try {
+    const totalEmployees = await Employee.countDocuments();
+    const activeEmployees = await Employee.countDocuments({ status: 'Active' });
+    const inactiveEmployees = await Employee.countDocuments({ status: 'Inactive' });
+   
+    // Get employees by department
+    const departmentStats = await Employee.aggregate([
+      {
+        $group: {
+          _id: '$department',
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { count: -1 }
+      }
+    ]);
+
+    // Get employees by designation
+    const designationStats = await Employee.aggregate([
+      {
+        $group: {
+          _id: '$designation',
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { count: -1 }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        total: totalEmployees,
+        active: activeEmployees,
+        inactive: inactiveEmployees,
+        byDepartment: departmentStats,
+        byDesignation: designationStats
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching employee stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching employee statistics'
+    });
+  }
+};
+
+// Bulk update employee status
+export const bulkUpdateStatus = async (req, res) => {
+  try {
+    const { employeeIds, status } = req.body;
+
+    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Employee IDs array is required'
+      });
+    }
+
+    if (!['Active', 'Inactive'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Use "Active" or "Inactive".'
+      });
+    }
+
+    const result = await Employee.updateMany(
+      { employeeId: { $in: employeeIds } },
+      { $set: { status: status } }
+    );
+
+    res.json({
+      success: true,
+      message: `Successfully updated ${result.modifiedCount} employees to ${status} status`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error in bulk update:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during bulk update'
+    });
+  }
+};

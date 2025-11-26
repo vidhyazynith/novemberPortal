@@ -14,7 +14,8 @@ const CustomerManagment = () => {
   const [activeTab, setActiveTab] = useState('active');
   const [phoneError, setPhoneError] = useState('');
   const [paymentTermsError, setPaymentTermsError] = useState('');
-
+ const [emailError, setEmailError] = useState(''); // NEW: Email validation error state
+  const [checkingEmail, setCheckingEmail] = useState(false); // NEW: Loading state for email check
   // Form state with proper default values
   const [form, setForm] = useState({
     name: '',
@@ -31,6 +32,52 @@ const CustomerManagment = () => {
     if (terms === 0) return 'Due on receipt';
     if (terms === 1) return 'Net 1 day';
     return `Net ${terms} days`;
+  };
+
+   // NEW: Email validation function
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // NEW: Function to check if email already exists
+  const checkEmailExists = async (email) => {
+    if (!email || !isValidEmail(email)) {
+      setEmailError('');
+      return false;
+    }
+
+    // For update: if email hasn't changed, no need to check
+    if (editingCustomer && email === editingCustomer.email) {
+      setEmailError('');
+      return false;
+    }
+
+    setCheckingEmail(true);
+    try {
+      // Check in existing customers list first (client-side cache)
+      const existingCustomer = customers.find(cust => 
+        cust.email.toLowerCase() === email.toLowerCase() && 
+        (!editingCustomer || cust._id !== editingCustomer._id) // Exclude current customer for updates
+      );
+      
+      if (existingCustomer) {
+        setEmailError('Customer with this email already exists');
+        return true;
+      }
+
+      // Note: We can't check User collection from frontend for security reasons
+      // The backend will handle the User collection check and return appropriate error
+      setEmailError('');
+      return false;
+      
+    } catch (error) {
+      console.error('Error checking email:', error);
+      setEmailError('');
+      return false;
+    } finally {
+      setCheckingEmail(false);
+    }
   };
 
   // Fetch customers from MongoDB
@@ -67,10 +114,39 @@ const CustomerManagment = () => {
       } else {
         setPaymentTermsError('');
       }
+    } else if (name === 'email') {
+      setForm({ ...form, [name]: value });
+
+      // Real-time email validation with debounce
+      if (value) {
+        if (!isValidEmail(value)) {
+          setEmailError('Please enter a valid email address');
+        } else {
+          // For update: check if email is different from current
+          const isUpdate = !!editingCustomer;
+          const currentEmail = editingCustomer?.email || '';
+          
+          if (isUpdate && value === currentEmail) {
+            // If email hasn't changed, no need to check for duplicates
+            setEmailError('');
+          } else {
+            // Clear previous error and check if email exists
+            setEmailError('');
+            // Add a small delay to avoid too many API calls
+            const timer = setTimeout(() => {
+              checkEmailExists(value);
+            }, 500);
+            return () => clearTimeout(timer);
+          }
+        }
+      } else {
+        setEmailError('Email is required');
+      }
     } else {
       setForm({ ...form, [name]: value });
     }
   };
+
 
   // Phone validation function
   const validatePhoneNumber = (phone) => {
@@ -145,6 +221,19 @@ const CustomerManagment = () => {
         setLoading(false);
         return;
       }
+      // Validate email format
+      if (!isValidEmail(form.email)) {
+        setEmailError('Please enter a valid email address');
+        setLoading(false);
+        return;
+      }
+ // Check if email already exists (final check before submission)
+      const emailExists = await checkEmailExists(form.email);
+      if (emailExists) {
+        setLoading(false);
+        return;
+      }
+
 
       // Prepare data for submission
       const submitData = {
@@ -179,13 +268,33 @@ const CustomerManagment = () => {
       setEditingCustomer(null);
       setPhoneError('');
       setPaymentTermsError('');
+      setEmailError('');
     } catch (error) {
-      alert('Error saving customer: ' + error.message);
+      console.error('Error saving customer:', error);
+      
+      // Handle specific email duplicate errors from backend
+      if (error.response?.data?.message) {
+        const errorMessage = error.response.data.message;
+
+        // Handle email duplicate errors
+        if (errorMessage.includes('email') || errorMessage.includes('Email')) {
+          if (errorMessage.includes('already exists in the system')) {
+            setEmailError('Email already exists in the system (may belong to an admin or employee)');
+          } else if (errorMessage.includes('Customer with this email already exists')) {
+            setEmailError('Customer with this email already exists');
+          } else {
+            setEmailError('Email already exists');
+          }
+        } else {
+          alert('Error saving customer: ' + errorMessage);
+        }
+      } else {
+        alert('Error saving customer: ' + error.message);
+      }
     } finally {
       setLoading(false);
     }
   };
-
   const handleEdit = (customer) => {
     setForm({
       name: customer.name || '',
@@ -199,6 +308,7 @@ const CustomerManagment = () => {
     setEditingCustomer(customer);
     setPhoneError('');
     setPaymentTermsError('');
+    setEmailError('');
     setShowAddForm(true);
   };
 
@@ -236,6 +346,7 @@ const CustomerManagment = () => {
     setEditingCustomer(null);
     setPhoneError('');
     setPaymentTermsError('');
+    setEmailError('');
   };
 
   const filteredCustomers = customers.filter(customer =>
@@ -261,7 +372,14 @@ const CustomerManagment = () => {
       {/* Stats Cards */}
       <div className="customer-stats-grid">
         <div className="customer-stat-card">
-          <div className="stat-icon">👥</div>
+          <div className="stat-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          </div>
           <div className="stat-content">
             <h3>Total Customers</h3>
             <span className="stat-number">{customers.length}</span>
@@ -269,7 +387,12 @@ const CustomerManagment = () => {
         </div>
        
         <div className="customer-stat-card">
-          <div className="stat-icon">✅</div>
+          <div className="stat-icon">
+             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          </div>
           <div className="stat-content">
             <h3>Active Customers</h3>
             <span className="stat-number">{activeCustomers}</span>
@@ -277,7 +400,9 @@ const CustomerManagment = () => {
         </div>
        
         <div className="customer-stat-card">
-          <div className="stat-icon">🏢</div>
+          <div className="stat-icon">
+            <svg fill="#000000" width="800px" height="800px" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M604.16 788.48H419.84V947.2c0 14.138-11.462 25.6-25.6 25.6s-25.6-11.462-25.6-25.6V762.88c0-14.138 11.462-25.6 25.6-25.6h235.52c14.138 0 25.6 11.462 25.6 25.6V947.2c0 14.138-11.462 25.6-25.6 25.6s-25.6-11.462-25.6-25.6V788.48zm385.033 130.041c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-80.475c-14.138 0-25.6-11.462-25.6-25.6V347.279a5.12 5.12 0 00-5.12-5.12H530.98c-25.449 0-46.08-20.631-46.08-46.08V123.205a5.12 5.12 0 00-5.12-5.12H141.694a5.12 5.12 0 00-5.12 5.12V946.48c0 14.138-11.462 25.6-25.6 25.6H27.521c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6h57.853V123.205c0-31.105 25.215-56.32 56.32-56.32H479.78c31.105 0 56.32 25.215 56.32 56.32v167.754h341.898c31.105 0 56.32 25.215 56.32 56.32v571.242h54.875zM220.16 174.08h184.32c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h184.32c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h583.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h583.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h583.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm512 0h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm-512 122.88h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm512 0h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6z"/></svg>
+          </div>
           <div className="stat-content">
             <h3>Corporate Clients</h3>
             <span className="stat-number">{corporateCustomers}</span>
@@ -341,9 +466,21 @@ const CustomerManagment = () => {
                     onChange={handleChange}
                     placeholder="Enter email address"
                     required
+                  className={emailError ? 'invalid-input' : ''}
                   />
+                  {emailError && (
+                    <small className="error-text" style={{ color: '#dc2626', marginTop: '4px' }}>
+                      {emailError}
+                      {checkingEmail && ' (checking...)'}
+                    </small>
+                  )}
+                  {!emailError && form.email && isValidEmail(form.email) && (
+                    <small style={{ color: '#16a34a', marginTop: '4px' }}>
+                      ✓ Email format is valid
+                    </small>
+                  )}
                 </div>
-               
+
                 <div className="forme-group">
                   <label>Phone Number *</label>
                   <div className="phone-input-container">
@@ -431,7 +568,7 @@ const CustomerManagment = () => {
                 <button 
                   type="submit" 
                   className="submit-btn" 
-                  disabled={loading || phoneError || paymentTermsError}
+                  disabled={loading || phoneError || paymentTermsError|| emailError || !form.email}
                 >
                   {loading ? 'Saving...' : (editingCustomer ? 'Update Customer' : 'Add Customer')}
                 </button>

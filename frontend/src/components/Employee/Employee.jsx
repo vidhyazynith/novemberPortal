@@ -10,6 +10,7 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
   const { user, logout } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
@@ -20,11 +21,20 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
   const [formAttempts, setFormAttempts] = useState(0);
   const [phoneError, setPhoneError] = useState(''); // NEW: Separate state for phone validation
 
+  const [emailError, setEmailError] = useState(''); // NEW: Email validation error state
+  const [checkingEmail, setCheckingEmail] = useState(false); // NEW: Loading state for email check
+
   // NEW: State for dynamic categories
   const [designations, setDesignations] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [panError, setPanError] = useState(''); 
+  
+  // State for address dropdowns
+  const [countries, setCountries] = useState([]);
+  const [addressLoading, setAddressLoading] = useState({
+    countries: false,
+  });
 
   const [formData, setFormData] = useState({
     personId: '',
@@ -34,7 +44,12 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     designation: '',
     department: '',
     phone: '',
-    address: '',
+    addressLine1: '',
+    addressLine2: '',
+    country: '',
+    state: '',
+    city: '',
+    pinCode: '',
     panNumber: '',
     joiningDate: '',
     status: 'Active'
@@ -52,30 +67,6 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     isSkeleton: true
   }));
 
-  // // Designation options
-  // const designationOptions = [
-  //   'Senior Developer',
-  //   'Junior Developer',
-  //   'Project Manager',
-  //   'UI/UX Designer',
-  //   'HR Manager',
-  //   'Finance Analyst',
-  //   'Sales Executive'
-  // ];
-
-  // // Department options
-  // const departmentOptions = [
-  //   'Engineering',
-  //   'Management',
-  //   'Design',
-  //   'Sales',
-  //   'HR',
-  //   'Finance',
-  //   'Marketing',
-  //   'Operations',
-  //   'IT'
-  // ];
-
   // Load employees on component mount
   const loadEmployees = async () => {
     setLoading(true);
@@ -91,6 +82,7 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
       setError('Failed to load employees. Please try again.');
     } finally {
       setLoading(false);
+      setStatsLoading(false);
     }
   };
 
@@ -126,10 +118,79 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     }
   };
 
+  // useEffect(() => {
+  //   loadEmployees();
+  //   loadCategories(); // Load categories when component mounts
+  // }, []);
+
+    // Load countries
+  const loadCountries = async () => {
+    setAddressLoading(prev => ({ ...prev, countries: true }));
+    try {
+      const response = await employeeService.getCountries();
+      console.log('Countries response:', response);
+     
+      if (response && response.countries) {
+        setCountries(response.countries);
+        console.log('✅ Countries loaded:', response.countries.length);
+      } else {
+        console.error('❌ Invalid countries response format');
+        setCountries([]);
+      }
+    } catch (error) {
+      console.error('Error loading countries:', error);
+      setError('Failed to load countries list');
+      setCountries([]);
+    } finally {
+      setAddressLoading(prev => ({ ...prev, countries: false }));
+    }
+  };
+
   useEffect(() => {
     loadEmployees();
-    loadCategories(); // Load categories when component mounts
+    loadCategories();
+    loadCountries();
   }, []);
+
+    // NEW: Function to check if email already exists
+  const checkEmailExists = async (email) => {
+    if (!email || !isValidEmail(email)) {
+      setEmailError('');
+      return false;
+    }
+
+    setCheckingEmail(true);
+    try {
+      // Check in existing employees list first (client-side cache)
+      const existingEmployee = employees.find(emp => 
+        emp.email.toLowerCase() === email.toLowerCase()
+      );
+      
+      if (existingEmployee) {
+        setEmailError('Email already exists for another employee');
+        return true;
+      }
+
+      // If not found in cache, check with backend API
+      // You might need to create an API endpoint for email validation
+      // For now, we'll rely on the form submission error handling
+      setEmailError('');
+      return false;
+      
+    } catch (error) {
+      console.error('Error checking email:', error);
+      setEmailError('');
+      return false;
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
+  // NEW: Email validation function
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   // ID generation function
   const generateNextEmployeeId = async () => {
@@ -222,6 +283,32 @@ const handleUpdateEmployee = async (e) => {
     return;
   }
 
+    // Validate address fields
+    if (!formData.addressLine1 || !formData.country || !formData.state || !formData.city || !formData.pinCode) {
+      setError('Please fill all required address fields');
+      setLoading(false);
+      return;
+    }
+
+    // // Validate PIN code format
+    // const pinRegex = /^[1-9][0-9]{5}$/;
+    // if (!pinRegex.test(formData.pinCode)) {
+    //   setError('Please enter a valid 6-digit PIN code');
+    //   setLoading(false);
+    //   return;
+    // }
+  // Validate email format if provided and changed
+  const currentEmail = editingEmployee.email;
+  const newEmail = formData.email;
+  
+  if (newEmail && newEmail !== currentEmail) {
+    if (!isValidEmail(newEmail)) {
+      setEmailError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+  }
+
   // Only validate PAN if it's provided and different from current
   const currentPan = editingEmployee.panNumber;
   const newPan = formData.panNumber;
@@ -232,16 +319,47 @@ const handleUpdateEmployee = async (e) => {
   }
 
   try {
-    const updateData = { ...formData };
+    const updateData = { 
+      name: formData.name,
+      email: formData.email,
+      designation: formData.designation,
+      department: formData.department,
+      phone: formData.phone,
+      // ✅ CORRECT: Create address object as expected by backend
+       // Use dot notation for address fields
+      'address.addressLine1': formData.addressLine1,
+      'address.addressLine2': formData.addressLine2 || '',
+      'address.country': formData.country,
+      'address.state': formData.state,
+      'address.city': formData.city,
+      'address.pinCode': formData.pinCode,
+      panNumber: formData.panNumber,
+      joiningDate: formData.joiningDate,
+      status: formData.status
+     };
 
     // ✅ Remove password field if empty (don't overwrite password)
     if (!updateData.password) {
       delete updateData.password;
     }
+    
+      // // Remove individual address fields since we're using the address object
+      // delete updateData.addressLine1;
+      // delete updateData.addressLine2;
+      // delete updateData.country;
+      // delete updateData.state;
+      // delete updateData.city;
+      // delete updateData.pinCode;
+
 
     // ✅ Remove PAN field if it hasn't changed (to avoid unnecessary validation)
     if (newPan === currentPan) {
       delete updateData.panNumber;
+    }
+
+    // Remove email field if it hasn't changed
+    if (newEmail === currentEmail) {
+      delete updateData.email;
     }
 
     // ✅ Perform update
@@ -252,6 +370,7 @@ const handleUpdateEmployee = async (e) => {
     setEditingEmployee(null);
     setPhoneError(''); // Clear phone error on success
     setPanError(''); // Clear PAN error on success
+    setEmailError('');
 
     await loadEmployees();
 
@@ -270,6 +389,16 @@ const handleUpdateEmployee = async (e) => {
     else if (error.response?.data?.message?.includes('PAN number')) {
       setPanError(error.response.data.message);
     }
+    // Handle email duplicate errors - SPECIFIC HANDLING FOR UPDATE
+    else if (error.response?.data?.message?.includes('email') || error.response?.data?.message?.includes('Email')) {
+      if (error.response?.data?.message?.includes('already exists in the system')) {
+        setEmailError('Email already exists in the system (may belong to an admin user)');
+      } else if (error.response?.data?.message?.includes('already exists for another employee')) {
+        setEmailError('Email already exists for another employee');
+      } else {
+        setEmailError('Email already exists');
+      }
+    }
     else {
       setError(error.response?.data?.message || '❌ Failed to update employee. Please try again.');
     }
@@ -284,6 +413,8 @@ const handleUpdateEmployee = async (e) => {
       setIsGeneratingId(true);
       setError('');
       setPhoneError(''); // Clear phone error when opening form
+      setEmailError('');
+      setPanError('');
       setFormAttempts(prev => prev + 1);
 
       await loadEmployees();
@@ -298,7 +429,12 @@ const handleUpdateEmployee = async (e) => {
         designation: '',
         department: '',
         phone: '',
-        address: '',
+        addressLine1: '',
+        addressLine2: '',
+        country: '',
+        state: '',
+        city: '',
+        pinCode: '',
         panNumber: '',
         joiningDate: '',
         status: 'Active'
@@ -347,7 +483,7 @@ const handleUpdateEmployee = async (e) => {
     setLoading(true);
     setError('');
     setSuccess('');
-    setPanError(''); // Clear previous PAN errors
+    // setPanError(''); // Clear previous PAN errors
 
 
     // Validate phone number
@@ -355,7 +491,36 @@ const handleUpdateEmployee = async (e) => {
       setLoading(false);
       return;
     }
+       // Validate address fields
+    if (!formData.addressLine1 || !formData.country || !formData.state || !formData.city || !formData.pinCode) {
+      setError('Please fill all required address fields');
+      setLoading(false);
+      return;
+    }
+
+    // Validate PIN code format
+    // const pinRegex = /^[1-9][0-9]{5}$/;
+    // if (!pinRegex.test(formData.pinCode)) {
+    //   setError('Please enter a valid 6-digit PIN code');
+    //   setLoading(false);
+    //   return;
+    // }
+
     if (!validatePanNumber(formData.panNumber)) {
+      setLoading(false);
+      return;
+    }
+    
+    // Validate email format
+    if (!isValidEmail(formData.email)) {
+      setEmailError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    // Check if email already exists (final check before submission)
+    const emailExists = await checkEmailExists(formData.email);
+    if (emailExists) {
       setLoading(false);
       return;
     }
@@ -374,14 +539,46 @@ const handleUpdateEmployee = async (e) => {
     }
 
     try {
+      // Prepare data for registration
+    const registrationData = {
+      personId: formData.personId,
+      email: formData.email,
+      password: formData.password,
+      name: formData.name,
+      designation: formData.designation,
+      department: formData.department,
+      phone: formData.phone,
+      // ✅ CORRECT: Create address object as expected by backend
+      address: {
+        addressLine1: formData.addressLine1,
+        addressLine2: formData.addressLine2 || '',
+        country: formData.country,
+        state: formData.state,
+        city: formData.city, // This will be mapped to district in backend if needed
+        pinCode: formData.pinCode
+      },
+      panNumber: formData.panNumber,
+      joiningDate: formData.joiningDate,
+      status: formData.status
+    };
+
+      // Remove individual address fields since we're using the address object
+      delete registrationData.addressLine1;
+      delete registrationData.addressLine2;
+      delete registrationData.country;
+      delete registrationData.state;
+      delete registrationData.city;
+      delete registrationData.pinCode;
+
       // ✅ Proceed with registration
-      const response = await employeeService.registerEmployee(formData);
+      const response = await employeeService.registerEmployee(registrationData);
 
       setSuccess('✅ Employee registered successfully!');
       setShowAddForm(false);
       setEditingEmployee(null);
       setPhoneError(''); // Clear phone error on success
       setPanError(''); // Clear PAN error on success
+      setEmailError('');
 
       // ✅ Reload employees list
       await loadEmployees();
@@ -409,52 +606,64 @@ const handleUpdateEmployee = async (e) => {
           setPanError(errorMessage);
         }
       }
-      // Handle email or Person ID duplicate errors
-      else if (errorMessage.includes('email') || errorMessage.includes('Person ID') || errorMessage.includes('User already exists')) {
-        setError(errorMessage);
-        
-        // If it's an Employee ID conflict, generate a new one
-        if (errorMessage.includes('Person ID') || errorMessage.includes('Employee ID')) {
-          const newId = await generateNextEmployeeId();
-          setFormData(prev => ({
-            ...prev,
-            personId: newId
-          }));
-          setError(`${errorMessage}. New ID generated: ${newId}. Please review and submit again.`);
-        }
+    // Handle email duplicate errors - SPECIFIC HANDLING
+    else if (errorMessage.includes('email') || errorMessage.includes('Email')) {
+      if (errorMessage.includes('already exists in the system')) {
+        setEmailError('Email already exists in the system (may belong to an admin user)');
+      } else if (errorMessage.includes('already exists for another employee')) {
+        setEmailError('Email already exists for another employee');
+      } else {
+        setEmailError('Email already exists');
       }
-      // Handle employee duplicate errors (email, employee ID, PAN)
-      else if (errorMessage.includes('Employee already exists')) {
-        if (errorMessage.includes('email')) {
-          setError('An employee with this email already exists. Please use a different email address.');
-        } else if (errorMessage.includes('Employee ID')) {
-          const newId = await generateNextEmployeeId();
-          setFormData(prev => ({
-            ...prev,
-            personId: newId
-          }));
-          setError(`Employee ID already exists. New ID generated: ${newId}. Please review and submit again.`);
-        } else if (errorMessage.includes('PAN number')) {
-          setPanError('PAN number already exists for another employee');
-        } else {
-          setError(errorMessage);
-        }
-      }
-      // Handle all other errors
-      else {
-        setError(errorMessage);
-      }
-    } else {
-      setError('Registration failed. Please try again.');
     }
-
-  } finally {
-    setLoading(false);
+    // Handle Employee ID duplicate errors
+    else if (errorMessage.includes('Employee ID')) {
+      const newId = await generateNextEmployeeId();
+      setFormData(prev => ({
+        ...prev,
+        personId: newId
+      }));
+      setError(`Employee ID already exists. New ID generated: ${newId}. Please review and submit again.`);
+    }
+    // Handle all other errors
+    else {
+      setError(errorMessage);
+    }
+  } else {
+    setError('Registration failed. Please try again.');
   }
-};
+} finally {
+      setLoading(false);
+    }
+  };
 
   const handleEditEmployee = (employee) => {
     setEditingEmployee(employee);
+     // Handle both old and new address formats
+    let addressData = {
+      addressLine1: '',
+      addressLine2: '',
+      country: '',
+      state: '',
+      city: '',
+      pinCode: ''
+    };
+
+    if (typeof employee.address === 'object') {
+      // New format with address object
+      addressData = {
+        addressLine1: employee.address.addressLine1 || '',
+        addressLine2: employee.address.addressLine2 || '',
+        country: employee.address.country || '',
+        state: employee.address.state || '',
+        city: employee.address.city || '',
+        pinCode: employee.address.pinCode || ''
+      };
+    } else {
+      // Old format with single address string
+      addressData.addressLine1 = employee.address || '';
+    }
+
     setFormData({
       personId: employee.employeeId,
       email: employee.email,
@@ -463,12 +672,14 @@ const handleUpdateEmployee = async (e) => {
       designation: employee.designation,
       department: employee.department,
       phone: employee.phone,
-      address: employee.address,
+      ...addressData,
       panNumber: employee.panNumber || '',
       joiningDate: employee.joiningDate ? employee.joiningDate.split('T')[0] : '',
       status: employee.status || 'Active'
     });
     setPhoneError(''); // Clear phone error when editing
+    setEmailError('');
+    setPanError('');
     setShowAddForm(true);
   };
 
@@ -482,19 +693,49 @@ const handleUpdateEmployee = async (e) => {
         [name]: upperValue
       });
       
-// Real-time PAN validation
-    if (upperValue) {
-      validatePanNumber(upperValue, !!editingEmployee, editingEmployee?.panNumber);
+      // Real-time PAN validation
+          if (upperValue) {
+            validatePanNumber(upperValue, !!editingEmployee, editingEmployee?.panNumber);
+          } else {
+            setPanError('PAN number is required');
+          }
+        } 
+    //     else if (name === 'pinCode') {
+    //   // Only allow numbers for PIN code
+    //   const numericValue = value.replace(/\D/g, '');
+    //   setFormData({
+    //     ...formData,
+    //     [name]: numericValue.slice(0, 6)
+    //   });
+    // }
+        else if (name === 'email') {
+          setFormData({
+            ...formData,
+            [name]: value
+          });
+      // Real-time email validation with debounce
+      if (value) {
+        if (!isValidEmail(value)) {
+          setEmailError('Please enter a valid email address');
+        } else {
+          // Clear previous error and check if email exists
+          setEmailError('');
+          // Add a small delay to avoid too many API calls
+          const timer = setTimeout(() => {
+            checkEmailExists(value);
+          }, 500);
+          return () => clearTimeout(timer);
+        }
+      } else {
+        setEmailError('Email is required');
+      }
     } else {
-      setPanError('PAN number is required');
+      setFormData({
+        ...formData,
+        [name]: value
+      });
     }
-  } else {
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-  }
-};
+  };
 
   const handlePhoneChange = (value) => {
     setFormData({
@@ -520,6 +761,7 @@ const handleUpdateEmployee = async (e) => {
     setError('');
     setPhoneError('');
     setPanError(''); // Clear PAN error when closing modal
+    setEmailError('');
     setFormAttempts(0);
   };
 
@@ -575,6 +817,11 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
   setPanError('');
   return true;
 };
+// Validate PIN code format
+  //const validatePinCode = (pin) => {
+  //   const pinRegex =  /^[A-Za-z0-9]{2,10}$/;
+  //   return pinRegex.test(pin);
+  // };
 
 
   return (
@@ -593,6 +840,55 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
           <button className="close-alert" onClick={() => setError('')}>×</button>
         </div>
       )}
+
+          {/* Overview Stats Cards */}
+    <div className="stats-cards-container">
+      <div className="stat-card total-employees">
+        <div className="stat-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+        </div>
+        <div className="stat-content">
+          <div className="stat-number">{employees.length}</div>
+          <div className="stat-label">Total Employees</div>
+        </div>
+      </div>
+
+      <div className="stat-card active-employees">
+        <div className="stat-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+        <div className="stat-content">
+          <div className="stat-number">
+            {employees.filter(emp => emp.status === 'Active').length}
+          </div>
+          <div className="stat-label">Active Employees</div>
+        </div>
+      </div>
+
+      <div className="stat-card inactive-employees">
+        <div className="stat-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <div className="stat-content">
+          <div className="stat-number">
+            {employees.filter(emp => emp.status === 'Inactive').length}
+          </div>
+          <div className="stat-label">Inactive Employees</div>
+        </div>
+      </div>
+    </div>
 
       {/* Header Section */}
       <div className="employee-header">
@@ -824,8 +1120,25 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
                     onChange={handleInputChange}
                     placeholder="Enter email address"
                     required
+className={emailError ? 'invalid-input' : ''}
                   />
-                </div>
+                  {emailError && (
+                    <small className="error-text" style={{ color: '#dc2626', marginTop: '4px' }}>
+                      {emailError}
+                      {checkingEmail && ' (checking...)'}
+                    </small>
+                  )}
+                  {!emailError && formData.email && isValidEmail(formData.email) && (
+                    <small style={{ color: '#16a34a', marginTop: '4px' }}>
+                      ✓ Email format is valid
+                    </small>
+                  )}
+                  {!emailError && !formData.email && (
+                    <small style={{ color: '#64748b', marginTop: '6px' }}>
+                      Enter a valid email address
+                    </small>
+                  )}
+                  </div>
                
                 <div className="form-group">
                   <label htmlFor="password">
@@ -958,18 +1271,109 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group full-width">
-                  <label htmlFor="address">Address *</label>
-                  <textarea
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    placeholder="Enter full address"
-                    rows="3"
-                    required
-                  />
+             
+              {/* Address Fields Section */}
+              <div className="form-section">
+                <h4>Address Information</h4>
+               
+                <div className="form-row">
+                  <div className="form-group full-width">
+                    <label htmlFor="addressLine1">Address Line 1 *</label>
+                    <input
+                      type="text"
+                      id="addressLine1"
+                      name="addressLine1"
+                      value={formData.addressLine1}
+                      onChange={handleInputChange}
+                      placeholder="Enter street address, building name"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full-width">
+                    <label htmlFor="addressLine2">Address Line 2 (Optional)</label>
+                    <input
+                      type="text"
+                      id="addressLine2"
+                      name="addressLine2"
+                      value={formData.addressLine2}
+                      onChange={handleInputChange}
+                      placeholder="Apartment, suite, unit, etc."
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="country">Country *</label>
+                    <select
+                      id="country"
+                      name="country"
+                      value={formData.country}
+                      onChange={handleInputChange}
+                      required
+                      disabled={addressLoading.countries}
+                    >
+                      <option value="">{addressLoading.countries ? 'Loading countries...' : 'Select Country'}</option>
+                      {countries.map((country, index) => (
+                        <option key={country.id || index} value={country.name}>
+                          {country.name}
+                        </option>
+                      ))}
+                    </select>
+                    {addressLoading.countries && (
+                      <small style={{ color: '#64748b' }}>Loading countries...</small>
+                    )}
+                  </div>
+                 
+                  <div className="form-group">
+                    <label htmlFor="state">State *</label>
+                    <input
+                      type="text"
+                      id="state"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      placeholder="Enter state"
+                      required
+                    />
+                  </div>
+                </div>
+
+                
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="city">City *</label>
+                    <input
+                      type="text"
+                      id="city"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      placeholder="Enter city"
+                      required
+                    />
+                  </div>
+                 
+                  <div className="form-group">
+                    <label htmlFor="pinCode">PIN Code *</label>
+                    <input
+                      type="text"
+                      id="pinCode"
+                      name="pinCode"
+                      value={formData.pinCode}
+                      onChange={handleInputChange}
+                      placeholder="Enter postal code"
+                      // pattern="[A-Za-z0-9]{2,10}"
+                      // title="Please enter a valid postal code (2-10 alphanumeric characters)"
+                      required
+                      maxLength="20"
+                      // className={formData.pinCode && !validatePinCode(formData.pinCode) ? 'invalid-input' : ''}
+                    />
+                    <small>Enter the postal code for the selected country</small>
+                  </div>
                 </div>
               </div>
 
@@ -1001,7 +1405,13 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
                 <button
                   type="submit"
                   className="submit-btn"
-                  disabled={loading || categoriesLoading || panError || phoneError ||!formData.panNumber}
+                  disabled={loading || categoriesLoading || panError || phoneError || emailError || !formData.addressLine1 ||
+                    !formData.country ||
+                    !formData.state ||
+                    !formData.city ||
+                    !formData.pinCode||
+                    !formData.email||
+                    !formData.panNumber}
                 >
                   {loading ? 'Saving...' : (editingEmployee ? 'Update Employee' : 'Add Employee')}
                 </button>
