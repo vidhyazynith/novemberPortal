@@ -33,6 +33,14 @@ const Admin = () => {
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const [recentTransactions, setRecentTransactions] = useState([]);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
+  const EmailIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+      <polyline points="22,6 12,13 2,6"/>
+    </svg>
+  );
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -46,6 +54,32 @@ const Admin = () => {
     navigate('/admin/login');
   };
 
+   const LogoutIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <polyline points="16,17 21,12 16,7"/>
+      <line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+  );
+ 
+  const DropdownArrow = ({ isOpen }) => (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      style={{
+        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+        transition: 'transform 0.2s ease'
+      }}
+    >
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  );
+
+ 
   // Load employees
   const loadEmployees = async () => {
     setLoading(true);
@@ -73,7 +107,7 @@ const Admin = () => {
       
       // Get recent transactions for dashboard
       const recent = transactionsData.transactions ? 
-        transactionsData.transactions.slice(0, 5) : [];
+        transactionsData.transactions.slice(0, 3) : [];
       
       setTransactionStats({
         totalIncome: statsData.totalIncome || 0,
@@ -155,6 +189,26 @@ const Admin = () => {
     return statusMap[status?.toLowerCase()] || '#6b7280';
   };
 
+
+  const toggleProfileDropdown = () => {
+  setShowProfileDropdown(!showProfileDropdown);
+};
+ 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showProfileDropdown && !event.target.closest('.admin-profile-container')) {
+        setShowProfileDropdown(false);
+      }
+    };
+ 
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showProfileDropdown]);
+
+  
   // Render content based on active section
   const renderContent = () => {
     switch (activeSection) {
@@ -379,7 +433,7 @@ const Admin = () => {
                 </button>
                 
                 <button 
-                  onClick={() => setActiveSection('salary')}
+                  onClick={() => setActiveSection('salary-records')}
                   style={{
                     background: 'white',
                     border: '2px solid #e2e8f0',
@@ -463,14 +517,15 @@ const Admin = () => {
     }
   };
 
-  return (
+return (
     <div className="admin-dashboard">
       {/* Fixed Sidebar */}
-      <Sidebar 
-        activeSection={activeSection} 
+      <Sidebar
+        activeSection={activeSection}
         setActiveSection={setActiveSection}
+        onLogout={handleLogout}
       />
-
+ 
       {/* Main Content */}
       <div className="main-content">
         {/* Header */}
@@ -479,21 +534,54 @@ const Admin = () => {
             <h1>{getSectionTitle(activeSection)}</h1>
           </div>
           <div className="header-right">
-            <div className="admin-user">
-              <span className="user-avatar">A</span>
-              <span className="user-name">Admin</span>
+            {/* Admin Profile with Dropdown Container */}
+            <div className="admin-profile-container">
+              <div
+                className="admin-user"
+                onClick={toggleProfileDropdown}
+                style={{ cursor: 'pointer' }}
+              >
+                <span className="user-avatar">A</span>
+                <span className="user-name">Admin</span>
+                <span className="dropdown-arrow">
+                  <DropdownArrow isOpen={showProfileDropdown} />
+                </span>
+              </div>
+             
+              {/* Profile Dropdown positioned correctly */}
+              {showProfileDropdown && (
+                <div className="profile-dropdown">
+                  <div className="dropdown-item email-item">
+                    <span className="dropdown-icon">
+                      <EmailIcon />
+                    </span>
+                    <div className="email-info">
+                      <div className="email-label">Email</div>
+                      <div className="email-address">{user?.email || 'admin@zynith.com'}</div>
+                    </div>
+                  </div>
+                  <div className="dropdown-divider"></div>
+                  <button
+                    className="dropdown-item logout-item"
+                    onClick={handleLogout}
+                  >
+                    <span className="dropdown-icon">
+                      <LogoutIcon />
+                    </span>
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
             </div>
-            <button onClick={handleLogout} className="logout-btn">
-              Logout
-            </button>
           </div>
         </header>
-
+ 
         {/* Render Content Based on Active Section */}
         {renderContent()}
       </div>
     </div>
   );
+ 
 };
 
 // Helper function to get section title

@@ -233,10 +233,10 @@ const calculateDueDate = (invoiceDate, paymentTerms) => {
 export const updateInvoice = async (req, res) => {
   try {
     const { id } = req.params;
-    const { customerId, items, invoiceDate, dueDate, taxPercent, notes, currency } = req.body;
+    const { customerId, items, invoiceDate, dueDate, taxPercent, notes, currency, status } = req.body; // ✅ Make sure status is included
 
     console.log('🔄 Updating invoice:', id);
-    console.log('📦 Update data:', { customerId, items, invoiceDate, dueDate, taxPercent, notes, currency });
+    console.log('📦 Update data:', { status, customerId, items }); // Log the status
 
     // ✅ ENHANCED CHECK: FIND INVOICE WITH PAYMENT DETAILS
     const existingInvoice = await Invoice.findById(id).populate("customerId");
@@ -250,11 +250,11 @@ export const updateInvoice = async (req, res) => {
       isPaid: existingInvoice.status === "paid"
     });
 
-    // ✅ STRICT CHECK FOR PAID INVOICES - PREVENT EDITING
+    // ✅ ONLY PREVENT EDITING FOR PAID INVOICES, NOT FOR STATUS CHANGES
     if (existingInvoice.status === "paid") {
       console.log('❌ Attempted to edit paid invoice:', existingInvoice.invoiceNumber);
       return res.status(400).json({ 
-        message: "Cannot edit invoice that has been paid. Edit functionality is disabled for paid invoices.",
+        message: "Cannot edit invoice that has been paid.",
         invoiceNumber: existingInvoice.invoiceNumber,
         status: existingInvoice.status
       });
@@ -317,7 +317,7 @@ export const updateInvoice = async (req, res) => {
     console.log('💰 Calculated totals:', { subtotal, taxAmount, totalAmount });
 
     // Update invoice in DB with new fields
-    const updatedInvoice = await Invoice.findByIdAndUpdate(
+     const updatedInvoice = await Invoice.findByIdAndUpdate(
       id,
       {
         customerId,
@@ -335,7 +335,8 @@ export const updateInvoice = async (req, res) => {
         taxAmount,
         subtotal,
         notes: notes || '',
-        currency: currency || "USD"
+        currency: currency || "USD",
+        status: status || existingInvoice.status // ✅ IMPORTANT: Include status update
       },
       { new: true, runValidators: true }
     ).populate("customerId");
@@ -403,6 +404,45 @@ export const getPaymentProof = async (req, res) => {
   } catch (error) {
     console.error("Error serving payment proof:", error);
     res.status(500).json({ message: "Error serving file" });
+  }
+};
+// Update invoice status in backend
+// Update invoice status in backend
+const updateInvoiceEmailStatus = async (invoiceId, invoice) => {
+  try {
+    const updateData = {
+      status: 'sent', // ✅ THIS MUST BE 'sent' to change from draft to sent
+      emailSent: true,
+      emailSentAt: new Date(),
+      // Include all required fields to avoid validation errors
+      customerId: invoice.customerId._id,
+      items: invoice.items.map(item => ({
+        description: item.description,
+        remarks: item.remarks || "",
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        amount: item.amount
+      })),
+      totalAmount: invoice.totalAmount,
+      date: invoice.date,
+      dueDate: invoice.dueDate,
+      taxPercent: invoice.taxPercent || 0,
+      notes: invoice.notes || '',
+      currency: invoice.currency || 'USD'
+    };
+
+    console.log('🔄 Updating invoice status to "sent":', invoiceId);
+    console.log('📤 Update data:', updateData);
+
+    // Make sure this API call is working
+    const response = await billingService.updateInvoice(invoiceId, updateData);
+    console.log('✅ Invoice status updated to "sent" successfully');
+    
+    return response;
+  } catch (error) {
+    console.error('❌ Error updating invoice status:', error);
+    console.error('❌ Error details:', error.response?.data);
+    throw error;
   }
 };
 

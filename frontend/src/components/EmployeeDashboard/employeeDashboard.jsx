@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { employeeDashService } from '../../services/employeeDash';
 import './employeeDashboard.css';
 import { Navigate } from 'react-router-dom';
-
+ 
 const EmployeeDashboard = () => {
   const { user , logout } = useAuth();
   const [employeeDetails, setEmployeeDetails] = useState(null);
@@ -12,27 +12,27 @@ const EmployeeDashboard = () => {
   const [currentSalary, setCurrentSalary] = useState(null);
   const [salaryStats, setSalaryStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('salary');
   const [selectedPayslip, setSelectedPayslip] = useState(null);
   const [showPayslipModal, setShowPayslipModal] = useState(false);
-
+ 
   useEffect(() => {
     if (user) {
       loadEmployeeData();
     }
   }, [user]);
-
-  
-
+ 
+ 
+ 
   const handleLogout = () => {
     logout();
     Navigate('/admin/login');
   };
-
+ 
   const loadEmployeeData = async () => {
     try {
       setLoading(true);
-      
+     
       // Load all employee data in parallel
       const [
         profileResponse,
@@ -47,20 +47,20 @@ const EmployeeDashboard = () => {
         employeeDashService.getCurrentSalary(),
         employeeDashService.getSalaryStats()
       ]);
-
+ 
       setEmployeeDetails(profileResponse.employee);
       setPayslips(payslipsResponse.payslips || []);
       setSalaryHistory(salaryHistoryResponse.salaries || []);
       setCurrentSalary(currentSalaryResponse.currentSalary);
       setSalaryStats(salaryStatsResponse.stats);
-
+ 
     } catch (error) {
       console.error('Error loading employee data:', error);
     } finally {
       setLoading(false);
     }
   };
-
+ 
   const handleDownloadPayslip = async (payslipId) => {
     try {
       // This would need to be implemented in your employeeDashService
@@ -77,7 +77,36 @@ const EmployeeDashboard = () => {
       alert('Error downloading payslip');
     }
   };
-
+ 
+  const handleDownloadSalaryPayslip = async (salaryId) => {
+  try {
+    // Find the corresponding payslip for this salary record
+    const correspondingPayslip = payslips.find(payslip =>
+      payslip.month === salaryHistory.find(s => s._id === salaryId)?.month &&
+      payslip.year === salaryHistory.find(s => s._id === salaryId)?.year
+    );
+ 
+    if (correspondingPayslip) {
+      await handleDownloadPayslip(correspondingPayslip._id);
+    } else {
+      // If no direct match found, try to download using salary ID
+      // You might need to implement a separate service method for this
+      const blob = await employeeDashService.downloadPayslipBySalaryId(salaryId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `payslip-${salaryId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+  } catch (error) {
+    console.error('Error downloading salary payslip:', error);
+    alert('Error downloading payslip. Please try again or contact HR.');
+  }
+};
+ 
   const handleViewPayslip = async (payslipId) => {
     try {
       const response = await employeeDashService.getPayslipDetails(payslipId);
@@ -87,7 +116,33 @@ const EmployeeDashboard = () => {
       alert('Error loading payslip details');
     }
   };
-
+ 
+  // NEW FUNCTION: Handle viewing payslip from salary history
+  const handleViewSalaryPayslip = async (salaryId) => {
+    try {
+      // Find the corresponding payslip for this salary record
+      const salaryRecord = salaryHistory.find(s => s._id === salaryId);
+      if (!salaryRecord) {
+        alert('Salary record not found');
+        return;
+      }
+ 
+      // Find matching payslip by month and year
+      const correspondingPayslip = payslips.find(payslip =>
+        payslip.month === salaryRecord.month &&
+        payslip.year === salaryRecord.year
+      );
+ 
+      if (correspondingPayslip) {
+        // If payslip exists, view it
+        await handleViewPayslip(correspondingPayslip._id);
+      }
+    } catch (error) {
+      console.error('Error viewing salary payslip:', error);
+      alert('Error loading payslip details. Please try again.');
+    }
+  };
+ 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -96,7 +151,7 @@ const EmployeeDashboard = () => {
       maximumFractionDigits: 0
     }).format(amount || 0);
   };
-
+ 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -105,7 +160,7 @@ const EmployeeDashboard = () => {
       day: 'numeric'
     });
   };
-
+ 
   const getMonthName = (monthNumber) => {
     const months = [
       'January', 'February', 'March', 'April', 'May', 'June',
@@ -113,7 +168,7 @@ const EmployeeDashboard = () => {
     ];
     return months[monthNumber - 1] || monthNumber;
   };
-
+ 
   if (loading) {
     return (
       <div className="employee-dashboard">
@@ -124,7 +179,7 @@ const EmployeeDashboard = () => {
       </div>
     );
   }
-
+ 
   return (
     <div className="employee-dashboard">
       {/* Header Section */}
@@ -146,202 +201,46 @@ const EmployeeDashboard = () => {
           Logout
         </button>
       </div>
-
+ 
       {/* Navigation Tabs */}
       <div className="dashboard-tabs">
-        <button 
+        {/* <button
           className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
           📊 Overview
-        </button>
-        <button 
+        </button> */}
+        {/* <button
           className={`tab-button ${activeTab === 'payslips' ? 'active' : ''}`}
           onClick={() => setActiveTab('payslips')}
         >
           💰 Payslips
-        </button>
-        <button 
+        </button> */}
+        <button
           className={`tab-button ${activeTab === 'salary' ? 'active' : ''}`}
           onClick={() => setActiveTab('salary')}
         >
           💵 Salary History
         </button>
-        <button 
+        <button
           className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
           onClick={() => setActiveTab('profile')}
         >
           👤 Profile
         </button>
       </div>
-
+ 
       {/* Content Area */}
       <div className="dashboard-content">
-        {activeTab === 'overview' && (
-          <div className="overview-tab">
-            {/* Quick Stats */}
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-icon">💰</div>
-                <div className="stat-content">
-                  <h3>Total Payslips</h3>
-                  <span className="stat-number">{payslips.length}</span>
-                  <span className="stat-change">Available for download</span>
-                </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon">📅</div>
-                <div className="stat-content">
-                  <h3>Employment Date</h3>
-                  <span className="stat-number">
-                    {employeeDetails?.joiningDate ? 
-                      new Date(employeeDetails.joiningDate).getFullYear() : 'N/A'
-                    }
-                  </span>
-                  <span className="stat-change">
-                    {employeeDetails?.joiningDate ? 
-                      formatDate(employeeDetails.joiningDate) : 'Not available'
-                    }
-                  </span>
-                </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon">💵</div>
-                <div className="stat-content">
-                  <h3>Total Earned</h3>
-                  <span className="stat-number">
-                    {salaryStats ? formatCurrency(salaryStats.totalEarned) : 'N/A'}
-                  </span>
-                  <span className="stat-change">
-                    {salaryStats?.totalSalaries || 0} salary records
-                  </span>
-                </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon">📈</div>
-                <div className="stat-content">
-                  <h3>Average Salary</h3>
-                  <span className="stat-number">
-                    {salaryStats ? formatCurrency(salaryStats.averageSalary) : 'N/A'}
-                  </span>
-                  <span className="stat-change">
-                    Current role
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Current Salary Card */}
-            {currentSalary && (
-              <div className="content-section">
-                <h3>Current Month Salary</h3>
-                <div className="current-salary-card">
-                  <div className="salary-period">
-                    {currentSalary.month} {currentSalary.year}
-                  </div>
-                  <div className="salary-amount">
-                    {formatCurrency(currentSalary.netPay)}
-                  </div>
-                  <div className="salary-details">
-                    <div className="detail-item">
-                      <span>Basic Salary:</span>
-                      <span>{formatCurrency(currentSalary.basicSalary)}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span>Gross Earnings:</span>
-                      <span>{formatCurrency(currentSalary.grossEarnings)}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span>Deductions:</span>
-                      <span className="text-danger">
-                        -{formatCurrency(currentSalary.totalDeductions)}
-                      </span>
-                    </div>
-                    <div className="detail-item total">
-                      <span>Net Pay:</span>
-                      <span className="net-pay">
-                        {formatCurrency(currentSalary.netPay)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="salary-status">
-                    <span className={`status-badge status-${currentSalary.status}`}>
-                      {currentSalary.status}
-                    </span>
-                    {currentSalary.payDate && (
-                      <span className="pay-date">
-                        Paid on: {formatDate(currentSalary.payDate)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Recent Payslips Preview */}
-            <div className="content-section">
-              <div className="section-header">
-                <h3>Recent Payslips</h3>
-                <button 
-                  className="view-all-btn"
-                  onClick={() => setActiveTab('payslips')}
-                >
-                  View All
-                </button>
-              </div>
-              <div className="payslips-preview">
-                {payslips.slice(0, 3).map((payslip) => (
-                  <div key={payslip._id} className="payslip-preview-card">
-                    <div className="payslip-header">
-                      <span className="payslip-period">
-                        {payslip.month} {payslip.year}
-                      </span>
-                      <span className="payslip-amount">
-                        {formatCurrency(payslip.netPay)}
-                      </span>
-                    </div>
-                    <div className="payslip-date">
-                      Generated: {formatDate(payslip.createdAt)}
-                    </div>
-                    <div className="payslip-actions">
-                      <button
-                        className="action-btn primary"
-                        onClick={() => handleViewPayslip(payslip._id)}
-                      >
-                        👁️ View
-                      </button>
-                      <button
-                        className="action-btn success"
-                        onClick={() => handleDownloadPayslip(payslip._id)}
-                      >
-                        📥 Download
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {payslips.length === 0 && (
-                  <div className="empty-state">
-                    <div className="empty-icon">📄</div>
-                    <h4>No Payslips Available</h4>
-                    <p>Your payslips will appear here once they are generated by HR.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'payslips' && (
+          
+         {/* {activeTab === 'payslips' && (
           <div className="payslips-tab">
             <div className="content-section">
               <div className="section-header">
                 <h3>All Payslips</h3>
                 <span className="payslip-count">{payslips.length} payslips</span>
               </div>
-              
+             
               <div className="payslips-grid">
                 {payslips.map((payslip) => (
                   <div key={payslip._id} className="payslip-card">
@@ -354,7 +253,7 @@ const EmployeeDashboard = () => {
                         {formatCurrency(payslip.netPay)}
                       </div>
                     </div>
-
+ 
                     <div className="payslip-details">
                       <div className="detail-row">
                         <span>Gross Earnings:</span>
@@ -373,7 +272,7 @@ const EmployeeDashboard = () => {
                         </span>
                       </div>
                     </div>
-
+ 
                     <div className="payslip-card-footer">
                       <span className="payslip-date">
                         {payslip.payDate ? `Paid: ${formatDate(payslip.payDate)}` : `Generated: ${formatDate(payslip.createdAt)}`}
@@ -395,7 +294,7 @@ const EmployeeDashboard = () => {
                     </div>
                   </div>
                 ))}
-                
+               
                 {payslips.length === 0 && (
                   <div className="empty-state">
                     <div className="empty-icon">💰</div>
@@ -406,90 +305,87 @@ const EmployeeDashboard = () => {
               </div>
             </div>
           </div>
-        )}
-
+        )}  */}
+ 
         {activeTab === 'salary' && (
           <div className="salary-tab">
             <div className="content-section">
               <div className="section-header">
                 <h3>Salary History</h3>
-                <span className="payslip-count">{salaryHistory.length} records</span>
+                <span className="payslip-count">{payslips.length} records</span>
               </div>
 
-              {/* Salary Statistics */}
-              {salaryStats && (
-                <div className="stats-cards-horizontal">
-                  <div className="stat-card-small">
-                    <div className="stat-value">{formatCurrency(salaryStats.highestSalary)}</div>
-                    <div className="stat-label">Highest Salary</div>
-                  </div>
-                  <div className="stat-card-small">
-                    <div className="stat-value">{salaryStats.paidMonths}</div>
-                    <div className="stat-label">Paid Months</div>
-                  </div>
-                  <div className="stat-card-small">
-                    <div className="stat-value">{formatCurrency(salaryStats.totalEarned)}</div>
-                    <div className="stat-label">Total Earned</div>
-                  </div>
-                </div>
-              )}
-
-              {/* Salary History Table */}
-              <div className="salary-table-container">
-                <table className="salary-table">
-                  <thead>
-                    <tr>
-                      <th>Period</th>
-                      <th>Basic Salary</th>
-                      <th>Gross Earnings</th>
-                      <th>Deductions</th>
-                      <th>Net Pay</th>
-                      <th>Status</th>
-                      <th>Pay Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {salaryHistory.map((salary) => (
-                      <tr key={salary._id}>
-                        <td>
-                          <strong>{salary.month} {salary.year}</strong>
-                        </td>
-                        <td>{formatCurrency(salary.basicSalary)}</td>
-                        <td>{formatCurrency(salary.grossEarnings)}</td>
-                        <td className="text-danger">
-                          -{formatCurrency(salary.totalDeductions)}
-                        </td>
-                        <td className="net-pay">
-                          {formatCurrency(salary.netPay)}
-                        </td>
-                        <td>
-                          <span className={`status-badge status-${salary.status}`}>
-                            {salary.status}
-                          </span>
-                        </td>
-                        <td>
-                          {salary.payDate ? formatDate(salary.payDate) : 'Pending'}
-                        </td>
-                      </tr>
-                    ))}
-                    {salaryHistory.length === 0 && (
-                      <tr>
-                        <td colSpan="7" className="empty-table">
-                          <div className="empty-state">
-                            <div className="empty-icon">💵</div>
-                            <h4>No Salary History</h4>
-                            <p>Your salary records will appear here once processed.</p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+{/* Salary History Table */}
+<div className="salary-table-container">
+  <table className="salary-table">
+    <thead>
+      <tr>
+        <th>Period</th>
+        <th>Status</th>
+        <th>Pay Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {payslips.map((payslip) => (
+        <tr key={payslip._id}>
+          <td>
+            <strong>{payslip.month} {payslip.year}</strong>
+          </td>
+          <td>
+            <span className={`status-badge status-${'paid'}`}>
+              {'Paid'}
+            </span>
+          </td>
+          <td>
+            {payslip.payDate ? formatDate(payslip.payDate) : 
+             payslip.createdAt ? formatDate(payslip.createdAt) : 'Pending'}
+          </td>
+          <td>
+            <div className="action-buttons">
+              <button
+                className="action-btns primary"
+                onClick={() => handleViewPayslip(payslip._id)}
+                title="View Details"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+              <button
+                className="action-btns success"
+                onClick={() => handleDownloadPayslip(payslip._id)}
+                title="Download Payslip"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))}
+      {payslips.length === 0 && (
+        <tr>
+          <td colSpan="8" className="empty-table">
+            <div className="empty-state">
+              <div className="empty-icon">💵</div>
+              <h4>No Payslip History</h4>
+              <p>Your payslips will be available here once processed by the HR department.</p>
+            </div>
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
             </div>
           </div>
         )}
-
+ 
         {activeTab === 'profile' && (
           <div className="profile-tab">
             <div className="content-section">
@@ -504,7 +400,7 @@ const EmployeeDashboard = () => {
                     <p>{employeeDetails?.designation || 'N/A'} • {employeeDetails?.department || 'N/A'}</p>
                   </div>
                 </div>
-
+ 
                 <div className="profile-details-grid">
                   <div className="detail-group">
                     <label>Employee ID</label>
@@ -521,7 +417,7 @@ const EmployeeDashboard = () => {
                   <div className="detail-group">
                     <label>Date of Joining</label>
                     <span>
-                      {employeeDetails?.joiningDate ? 
+                      {employeeDetails?.joiningDate ?
                         formatDate(employeeDetails.joiningDate) : 'N/A'
                       }
                     </span>
@@ -534,14 +430,40 @@ const EmployeeDashboard = () => {
                     <label>Designation</label>
                     <span>{employeeDetails?.designation || 'N/A'}</span>
                   </div>
-                  <div className="detail-group">
+                  {/* Address Section */}
+                  {/* Address Section - Structured with individual fields */}
+                  <div className="detail-group full-width">
                     <label>Address</label>
-                    <span>{employeeDetails?.address || 'N/A'}</span>
+                    <div className="address-details structured">
+                      {employeeDetails?.address?.addressLine1 && (
+                        <div className="address-line">
+                          <span className="address-value">{employeeDetails.address.addressLine1 ? `${employeeDetails.address.addressLine1},` :''}</span>
+                        </div>
+                      )}
+                      {employeeDetails?.address?.addressLine2 && (
+                        <div className="address-line">
+                          <span className="address-value">{employeeDetails.address.addressLine2? `${employeeDetails.address.addressLine2},` :''}</span>
+                        </div>
+                      )}
+                      {(employeeDetails?.address?.city || employeeDetails?.address?.state || employeeDetails?.address?.pinCode) && (
+                        <div className="address-line">
+                          <span className="address-value">
+                            {employeeDetails?.address?.city ? `${employeeDetails.address.city} ` : ''}
+                            {employeeDetails?.address?.pinCode ? ` - ${employeeDetails.address.pinCode},` : ''}
+                            {employeeDetails?.address?.state ? `${employeeDetails?.address?.state}.` : ''}
+                          </span>
+                        </div>
+                      )}
+                      {!employeeDetails?.address?.addressLine1 && !employeeDetails?.address?.addressLine2 && 
+                      !employeeDetails?.address?.city && !employeeDetails?.address?.state && !employeeDetails?.address?.pinCode && (
+                        <span>N/A</span>
+                      )}
+                    </div>
                   </div>
                   <div className="detail-group">
                     <label>Member Since</label>
                     <span>
-                      {employeeDetails?.createdAt ? 
+                      {employeeDetails?.createdAt ?
                         formatDate(employeeDetails.createdAt) : 'N/A'
                       }
                     </span>
@@ -552,15 +474,15 @@ const EmployeeDashboard = () => {
           </div>
         )}
       </div>
-
+ 
       {/* Payslip Detail Modal */}
       {showPayslipModal && selectedPayslip && (
         <div className="modal-overlay" onClick={() => setShowPayslipModal(false)}>
           <div className="modal-content large-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Payslip Details - {selectedPayslip.month} {selectedPayslip.year}</h3>
-              <button 
-                className="close-btn" 
+              <button
+                className="close-btn"
                 onClick={() => setShowPayslipModal(false)}
               >
                 ×
@@ -579,7 +501,7 @@ const EmployeeDashboard = () => {
                     <p><strong>Designation:</strong> {employeeDetails?.designation}</p>
                   </div>
                 </div>
-
+ 
                 <div className="payslip-breakdown">
                   <div className="earnings-section">
                     <h4>Earnings</h4>
@@ -598,7 +520,7 @@ const EmployeeDashboard = () => {
                       <span>{formatCurrency(selectedPayslip.grossEarnings)}</span>
                     </div>
                   </div>
-
+ 
                   <div className="deductions-section">
                     <h4>Deductions</h4>
                     {selectedPayslip.deductions?.map((deduction, index) => (
@@ -617,7 +539,7 @@ const EmployeeDashboard = () => {
                     </div>
                   </div>
                 </div>
-
+ 
                 <div className="payslip-summary">
                   <div className="net-pay-section">
                     <h3>Net Pay</h3>
@@ -626,16 +548,16 @@ const EmployeeDashboard = () => {
                     </div>
                   </div>
                 </div>
-
+ 
                 <div className="payslip-actions-modal">
                   <button
-                    className="action-btn success"
+                    className="action-btns success"
                     onClick={() => handleDownloadPayslip(selectedPayslip._id)}
                   >
-                    📥 Download PDF
+                    Download PDF
                   </button>
                   <button
-                    className="action-btn"
+                    className="action-btns"
                     onClick={() => setShowPayslipModal(false)}
                   >
                     Close
@@ -649,5 +571,5 @@ const EmployeeDashboard = () => {
     </div>
   );
 };
-
+ 
 export default EmployeeDashboard;

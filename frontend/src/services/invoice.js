@@ -113,17 +113,30 @@ export const billingService = {
     }
   },
 
-  async downloadInvoiceBlob(invoiceId) {
-    try {
-      const response = await api.get(`/invoices/${invoiceId}/download`, {
-        responseType: 'blob'
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error downloading invoice blob:', error);
-      throw error;
+ async downloadInvoiceBlob(invoiceId) {
+  try {
+    console.log('📥 Downloading invoice blob for:', invoiceId);
+    const response = await api.get(`${BILLING_API_URL}/invoices/${invoiceId}/download`, {
+      responseType: 'blob'
+    });
+    console.log('✅ Invoice blob downloaded successfully');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error downloading invoice blob:', error);
+    console.error('❌ Error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data
+    });
+    
+    // Check if it's a 404 error
+    if (error.response?.status === 404) {
+      throw new Error('Invoice PDF not found. Please generate the invoice first.');
     }
+    
+    throw new Error(`Failed to download invoice: ${error.response?.statusText || error.message}`);
   }
+}
 };
 
 // Export constants for use in components
@@ -166,7 +179,7 @@ export const checkInvoiceStatus = (invoice) => {
  
   // Check if invoice is paid first
   if (invoice.status === 'paid') return 'paid';
- 
+  
   // Calculate 30 days from invoice date
   const thirtyDaysFromInvoice = new Date(invoiceDate);
   thirtyDaysFromInvoice.setDate(invoiceDate.getDate() + 30);
@@ -178,7 +191,12 @@ export const checkInvoiceStatus = (invoice) => {
     return 'overdue';
   }
  
-  return invoice.status === 'sent' ? 'unpaid' : invoice.status;
+  // For draft and sent invoices, return 'unpaid' for display
+  if (invoice.status === 'draft' || invoice.status === 'sent') {
+    return 'unpaid';
+  }
+ 
+  return invoice.status;
 };
 
 export const formatInvoiceAmount = (invoice) => {

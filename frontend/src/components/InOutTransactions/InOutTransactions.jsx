@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import { transactionService, typeOptions } from "../../services/transactions";
 import { categoryService } from "../../services/categoryService";
 import "./InOutTransactions.css";
- 
+
 const InOutTransactions = ({ onTransactionUpdate }) => {
   const [transactions, setTransactions] = useState([]);
-  const [allTransactions, setAllTransactions] = useState([]); // Store all transactions
+  const [allTransactions, setAllTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -39,40 +39,10 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
     fromDate: '',
     toDate: ''
   });
-  const [showRecentOnly, setShowRecentOnly] = useState(true);
- 
-  // Fetch transactions and categories from backend
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      const filters = {};
-      if (filterType) filters.type = filterType;
-      if (filterCategory) filters.category = filterCategory;
-      if (search) filters.search = search;
-      if (dateRange.fromDate) filters.fromDate = dateRange.fromDate;
-      if (dateRange.toDate) filters.toDate = dateRange.toDate;
 
-      const data = await transactionService.getTransactions(filters);
-      setAllTransactions(data.transactions || []);
-     
-      // Apply recent transactions filter by default
-      if (showRecentOnly) {
-        const recentTransactions = getRecentTransactions(data.transactions || []);
-        setTransactions(recentTransactions);
-      } else {
-        setTransactions(data.transactions || []);
-      }
-     
-      setTotals(data.totals || { income: 0, expenses: 0, net: 0 });
-      if (onTransactionUpdate) {
-        onTransactionUpdate();
-      }
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      setErrorMessage('Failed to load transactions');
-    } finally {
-      setLoading(false);
-    }
+  // Check if any filters are active
+  const areFiltersActive = () => {
+    return filterType || filterCategory || search || dateRange.fromDate || dateRange.toDate;
   };
 
   // Get recent transactions (last 30 days)
@@ -86,39 +56,85 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
     });
   };
 
-  // Apply date filter
-  const applyDateRangeFilter  = (selectedDate) => {
-    if (!selectedDate) {
-      // If no date selected, show recent transactions
-      if (showRecentOnly) {
-        setTransactions(getRecentTransactions(allTransactions));
+  // Fetch all transactions from backend
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      const data = await transactionService.getTransactions();
+      setAllTransactions(data.transactions || []);
+      
+      // Apply recent transactions filter by default (if no other filters)
+      if (!areFiltersActive()) {
+        const recentTransactions = getRecentTransactions(data.transactions || []);
+        setTransactions(recentTransactions);
       } else {
-        setTransactions(allTransactions);
+        setTransactions(data.transactions || []);
       }
-      return;
+      
+      setTotals(data.totals || { income: 0, expenses: 0, net: 0 });
+      
+      if (onTransactionUpdate) {
+        onTransactionUpdate();
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setErrorMessage('Failed to load transactions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Apply filters locally
+  const applyFilters = () => {
+    let filtered = allTransactions;
+
+    // If no filters are active, show only recent transactions
+    if (!areFiltersActive()) {
+      filtered = getRecentTransactions(allTransactions);
+    } else {
+      // Apply date range filter
+      if (dateRange.fromDate || dateRange.toDate) {
+        filtered = filtered.filter(transaction => {
+          const transactionDate = new Date(transaction.date);
+          transactionDate.setHours(0, 0, 0, 0);
+          
+          if (dateRange.fromDate && dateRange.toDate) {
+            const fromDate = new Date(dateRange.fromDate);
+            const toDate = new Date(dateRange.toDate);
+            toDate.setHours(23, 59, 59, 999);
+            return transactionDate >= fromDate && transactionDate <= toDate;
+          } else if (dateRange.fromDate) {
+            const fromDate = new Date(dateRange.fromDate);
+            return transactionDate >= fromDate;
+          } else if (dateRange.toDate) {
+            const toDate = new Date(dateRange.toDate);
+            toDate.setHours(23, 59, 59, 999);
+            return transactionDate <= toDate;
+          }
+          return true;
+        });
+      }
+
+      // Apply type filter
+      if (filterType) {
+        filtered = filtered.filter(transaction => transaction.type === filterType);
+      }
+
+      // Apply category filter
+      if (filterCategory) {
+        filtered = filtered.filter(transaction => transaction.category === filterCategory);
+      }
+
+      // Apply search filter
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filtered = filtered.filter(transaction =>
+          transaction.description.toLowerCase().includes(searchLower) ||
+          (transaction.remarks && transaction.remarks.toLowerCase().includes(searchLower))
+        );
+      }
     }
 
-    const filtered = allTransactions.filter(transaction => {
-      const transactionDate = new Date(transaction.date);
-      
-      if (dateRange.fromDate && dateRange.toDate) {
-        const fromDate = new Date(dateRange.fromDate);
-        const toDate = new Date(dateRange.toDate);
-        toDate.setHours(23, 59, 59, 999); // Include the entire end date
-        
-        return transactionDate >= fromDate && transactionDate <= toDate;
-      } else if (dateRange.fromDate) {
-        const fromDate = new Date(dateRange.fromDate);
-        return transactionDate >= fromDate;
-      } else if (dateRange.toDate) {
-        const toDate = new Date(dateRange.toDate);
-        toDate.setHours(23, 59, 59, 999); // Include the entire end date
-        return transactionDate <= toDate;
-      }
-      
-      return true;
-    });
-   
     setTransactions(filtered);
   };
 
@@ -128,8 +144,6 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       const response = await categoryService.getTransactionCategories();
       if (response.success) {
         setTransactionCategories(response.data);
-        
-        // Create separate category options for filter dropdown
         setIncomeCategoryOptions(response.data.income.map(cat => cat.name));
         setExpenseCategoryOptions(response.data.expense.map(cat => cat.name));
       }
@@ -138,13 +152,21 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       setErrorMessage('Failed to load categories');
     }
   };
- 
-    useEffect(() => {
+
+  // Initial data fetch
+  useEffect(() => {
     fetchTransactions();
     fetchTransactionCategories();
-  }, [filterType, filterCategory, search]);
+  }, []);
 
-  // Update category options when transaction type changes (for add transaction form)
+  // Apply filters when any filter changes
+  useEffect(() => {
+    if (allTransactions.length > 0) {
+      applyFilters();
+    }
+  }, [filterType, filterCategory, search, dateRange, allTransactions]);
+
+  // Update category options when transaction type changes
   useEffect(() => {
     if (newTransaction.type === 'Income') {
       setCategoryOptions(transactionCategories.income.map(cat => cat.name));
@@ -154,33 +176,18 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       setCategoryOptions([]);
     }
    
-    // Reset category when type changes
     if (newTransaction.type) {
       setNewTransaction(prev => ({ ...prev, category: '' }));
     }
   }, [newTransaction.type, transactionCategories]);
 
-  // Handle filter type change - reset category filter when type changes
+  // Handle filter type change
   const handleFilterTypeChange = (e) => {
     setFilterType(e.target.value);
-    setFilterCategory(''); // Reset category filter when type changes
+    setFilterCategory('');
   };
- 
-   // Handle recent transactions toggle
-  useEffect(() => {
-    if (showRecentOnly && !dateRange.fromDate && !dateRange.toDate) {
-      setTransactions(getRecentTransactions(allTransactions));
-    } else if (!dateRange.fromDate && !dateRange.toDate) {
-      setTransactions(allTransactions);
-    }
-  }, [showRecentOnly, allTransactions]);
 
-  // Handle date range change
-  useEffect(() => {
-    applyDateRangeFilter();
-  }, [dateRange, allTransactions]);
-
-    // Handle date range input change
+  // Handle date range input change
   const handleDateRangeChange = (field, value) => {
     setDateRange(prev => ({
       ...prev,
@@ -188,31 +195,41 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
     }));
   };
 
-  // Clear date range filter
+  // Clear all filters
+  const clearAllFilters = () => {
+    setFilterType('');
+    setFilterCategory('');
+    setSearch('');
+    setDateRange({
+      fromDate: '',
+      toDate: ''
+    });
+  };
+
+  // Clear date range filter only
   const clearDateRangeFilter = () => {
     setDateRange({
       fromDate: '',
       toDate: ''
     });
   };
- 
+
   // Open detail view modal
   const handleViewDetails = (transaction) => {
     setSelectedTransaction(transaction);
     setDetailModalOpen(true);
   };
- 
+
   // Close detail view modal
   const handleCloseDetailModal = () => {
     setDetailModalOpen(false);
     setSelectedTransaction(null);
   };
- 
+
   // Download attachment
   const handleDownloadAttachment = async (transactionId, fileName) => {
     try {
       const response = await transactionService.downloadAttachment(transactionId);
-     
       const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -227,17 +244,16 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       setErrorMessage('Failed to download attachment');
     }
   };
- 
+
   // Add new transaction
   const handleAddTransaction = async () => {
     if (!newTransaction.description || !newTransaction.amount || !newTransaction.type || !newTransaction.category) {
       setErrorMessage('Please fill in all required fields: Description, Amount, Type, and Category');
       return;
     }
- 
+
     try {
       await transactionService.addTransaction(newTransaction);
-     
       setSuccessMessage('Transaction added successfully!');
       setNewTransaction({
         description: '',
@@ -248,8 +264,7 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
         attachment: null
       });
       setOpen(false);
-     
-      fetchTransactions();
+      fetchTransactions(); // Refresh the data
       if (onTransactionUpdate) {
         onTransactionUpdate();
       }
@@ -258,14 +273,14 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       setErrorMessage('Failed to add transaction');
     }
   };
- 
+
   // Delete transaction
   const handleDeleteTransaction = async (transactionId) => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
       try {
         await transactionService.deleteTransaction(transactionId);
         setSuccessMessage('Transaction deleted successfully');
-        fetchTransactions();
+        fetchTransactions(); // Refresh the data
         if (onTransactionUpdate) {
           onTransactionUpdate();
         }
@@ -275,7 +290,7 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       }
     }
   };
- 
+
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -286,24 +301,24 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
         setErrorMessage('Please select a valid file type: PDF, JPG, PNG, DOC, DOCX, XLSX');
         return;
       }
- 
+
       if (file.size > 5 * 1024 * 1024) {
         setErrorMessage('File size must be less than 5MB');
         return;
       }
- 
+
       setNewTransaction({
         ...newTransaction,
         attachment: file
       });
     }
   };
- 
+
   // Format date for display
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-GB');
   };
- 
+
   // Format currency in Indian Rupees
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -313,73 +328,64 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       maximumFractionDigits: 0
     }).format(amount);
   };
- 
-  // Get all available categories for filter dropdown
-  // const getAllCategories = () => {
-  //   const allCategories = [
-  //     ...transactionCategories.income.map(cat => cat.name),
-  //     ...transactionCategories.expense.map(cat => cat.name)
-  //   ];
-  //   return [...new Set(allCategories)]; // Remove duplicates
-  // };
- 
-  // // Clear date filter
-  // const clearDateFilter = () => {
-  //   setDateFilter('');
-  // };
- 
+
   return (
-    <div className="transactions-container">
+    <div className="iot-container">
       {/* Success/Error Messages */}
       {successMessage && (
-        <div className="alert success">
+        <div className="iot-alert success">
           {successMessage}
-          <button onClick={() => setSuccessMessage('')} className="close-alert">×</button>
+          <button onClick={() => setSuccessMessage('')} className="iot-close-alert">×</button>
         </div>
       )}
      
       {errorMessage && (
-        <div className="alert error">
+        <div className="iot-alert error">
           {errorMessage}
-          <button onClick={() => setErrorMessage('')} className="close-alert">×</button>
+          <button onClick={() => setErrorMessage('')} className="iot-close-alert">×</button>
         </div>
       )}
- 
+
       {/* Summary Cards */}
-      <div className="summary-cards">
-        <div className="summary-card income">
-          <div className="card-icon">↑</div>
-          <div className="card-content">
+      <div className="iot-summary-cards">
+        <div className="iot-summary-card income">
+          <div className="iot-card-icon">↑</div>
+          <div className="iot-card-content">
             <h3>Total Income</h3>
-            <div className="amount">{formatCurrency(totals.income)}</div>
+            <div className="iot-amount">{formatCurrency(totals.income)}</div>
           </div>
         </div>
        
-        <div className="summary-card expense">
-          <div className="card-icon">↓</div>
-          <div className="card-content">
+        <div className="iot-summary-card expense">
+          <div className="iot-card-icon">↓</div>
+          <div className="iot-card-content">
             <h3>Total Expenses</h3>
-            <div className="amount">{formatCurrency(totals.expenses)}</div>
+            <div className="iot-amount">{formatCurrency(totals.expenses)}</div>
           </div>
         </div>
        
-        <div className="summary-card net">
-          <div className="card-icon">📊</div>
-          <div className="card-content">
+        <div className="iot-summary-card net">
+          <div className="iot-card-icon">📊</div>
+          <div className="iot-card-content">
             <h3>Net Income</h3>
-            <div className={`amount ${totals.net >= 0 ? 'positive' : 'negative'}`}>
+            <div className={`iot-amount ${totals.net >= 0 ? 'positive' : 'negative'}`}>
               {formatCurrency(totals.net)}
             </div>
           </div>
         </div>
       </div>
- 
+
       {/* Transaction History Header */}
-       <div className="transaction-history-header">
+      <div className="iot-history-header">
         <h2>
           Transaction History ({transactions.length} records)
+          {!areFiltersActive() && (
+            <span className="iot-date-filter-badge" >
+              Showing Last 30 Days
+            </span>
+          )}
           {(dateRange.fromDate || dateRange.toDate) && (
-            <span className="date-filter-badge">
+            <span className="iot-date-filter-badge">
               {dateRange.fromDate && dateRange.toDate 
                 ? `From ${formatDate(dateRange.fromDate)} to ${formatDate(dateRange.toDate)}`
                 : dateRange.fromDate 
@@ -389,23 +395,33 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
             </span>
           )}
         </h2>
-        <button className="add-transaction-btn" onClick={() => setOpen(true)}>
-          + Add Transaction
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          {areFiltersActive() && (
+            <button 
+              className="iot-clear-all-filter-btn"
+              onClick={clearAllFilters}
+              style={{ background: '#6b7280', color: 'white', padding: '0.5rem 1rem', borderRadius: '6px' }}
+            >
+              Clear All Filters
+            </button>
+          )}
+          <button className="iot-add-transaction-btn" onClick={() => setOpen(true)}>
+            + Add Transaction
+          </button>
+        </div>
       </div>
 
- 
       {/* Search and Filters */}
-      <div className="filters-section">
+      <div className="iot-filters-section">
         <input
           type="text"
-          className="search-input"
+          className="iot-search-input"
           placeholder="Search transactions or remarks"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <select
-          className="filter-select"
+          className="iot-filter-select"
           value={filterType}
           onChange={handleFilterTypeChange}
         >
@@ -415,7 +431,7 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
           ))}
         </select>
         <select
-          className="filter-select"
+          className="iot-filter-select"
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
         >
@@ -450,23 +466,23 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
           )}
         </select>
 
-    {/* Date Range Filter */}
-        <div className="date-range-filter">
-          <div className="date-input-group">
+        {/* Date Range Filter */}
+        <div className="iot-date-range-filter">
+          <div className="iot-date-input-group">
             <label>From Date</label>
             <input
               type="date"
-              className="date-input"
+              className="iot-date-input"
               value={dateRange.fromDate}
               onChange={(e) => handleDateRangeChange('fromDate', e.target.value)}
               max={dateRange.toDate || new Date().toISOString().split('T')[0]}
             />
           </div>
-          <div className="date-input-group">
+          <div className="iot-date-input-group">
             <label>To Date</label>
             <input
               type="date"
-              className="date-input"
+              className="iot-date-input"
               value={dateRange.toDate}
               onChange={(e) => handleDateRangeChange('toDate', e.target.value)}
               min={dateRange.fromDate}
@@ -475,7 +491,7 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
           </div>
           {(dateRange.fromDate || dateRange.toDate) && (
             <button 
-              className="clear-date-filter-btn"
+              className="iot-clear-date-filter-btn"
               onClick={clearDateRangeFilter}
               title="Clear date filter"
             >
@@ -483,42 +499,38 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
             </button>
           )}
         </div>
-        {/* <div className="recent-toggle-section">
-          <label className="toggle-label">
-            <span>Show Last 30 Days</span>
-            <div className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={showRecentOnly && !dateRange.fromDate && !dateRange.toDate}
-                onChange={handleRecentToggle}
-                disabled={!!dateRange.fromDate || !!dateRange.toDate}
-              />
-              <span className="toggle-slider"></span>
-            </div>
-          </label>
-          {(dateRange.fromDate || dateRange.toDate) && (
-            <p className="toggle-hint">Date range filter is active</p>
-          )}
-        </div> */}
       </div>
- 
+
+      {/* Info Message */}
+      {!areFiltersActive() && (
+        <div style={{
+          background: '#f0f9ff',
+          border: '1px solid #bae6fd',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1.5rem',
+          textAlign: 'center',
+          color: '#0369a1',
+          fontSize: '0.9rem'
+        }}>
+          💡 <strong>Showing recent transactions only</strong> (last 30 days). Apply filters to view all transactions.
+        </div>
+      )}
+
       {/* Transactions Table */}
-      <div className="transactions-table-container">
+      <div className="iot-table-container">
         {loading ? (
-          <div className="loading">Loading transactions...</div>
+          <div className="iot-loading">Loading transactions...</div>
         ) : transactions.length === 0 ? (
-          <div className="no-transactions">
-            {/* FIXED: Replaced dateFilter with dateRange */}
-            {dateRange.fromDate || dateRange.toDate ? (
-              <p>No transactions found for the selected date range.</p>
-            ) : showRecentOnly ? (
-              <p>No recent transactions found in the last 30 days.</p>
+          <div className="iot-no-transactions">
+            {areFiltersActive() ? (
+              <p>No transactions found matching your filters.</p>
             ) : (
-              <p>No transactions found.</p>
+              <p>No recent transactions found in the last 30 days.</p>
             )}
           </div>
         ) : (
-          <table className="transactions-table">
+          <table className="iot-transactions-table">
             <thead>
               <tr>
                 <th>Date</th>
@@ -535,36 +547,36 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
               {transactions.map((transaction) => (
                 <tr key={transaction._id} onClick={() => handleViewDetails(transaction)}>
                   <td>{formatDate(transaction.date)}</td>
-                  <td className="description-cell">{transaction.description}</td>
+                  <td className="iot-description-cell">{transaction.description}</td>
                   <td>
-                    <span className={`category-tag ${transaction.type.toLowerCase()}`}>
+                    <span className={`iot-category-tag ${transaction.type.toLowerCase()}`}>
                       {transaction.category}
                     </span>
                   </td>
-                  <td className={`amount-cell ${transaction.type.toLowerCase()}`}>
+                  <td className={`iot-amount-cell ${transaction.type.toLowerCase()}`}>
                     {formatCurrency(transaction.amount)}
                   </td>
-                  <td className="remarks-cell">
+                  <td className="iot-remarks-cell">
                     {transaction.remarks || 'No remarks'}
                   </td>
-                  <td className="attachment-cell">
+                  <td className="iot-attachment-cell">
                     {transaction.attachment ? (
-                      <div className="file-attachment">
-                        <span className="file-icon">📁</span>
-                        <span className="file-name">{transaction.attachment.originalName}</span>
+                      <div className="iot-file-attachment">
+                        <span className="iot-file-icon">📁</span>
+                        <span className="iot-file-name">{transaction.attachment.originalName}</span>
                       </div>
                     ) : (
-                      <span className="no-file">No file</span>
+                      <span className="iot-no-file">No file</span>
                     )}
                   </td>
                   <td>
-                    <span className={`type-badge ${transaction.type.toLowerCase()}`}>
+                    <span className={`iot-type-badge ${transaction.type.toLowerCase()}`}>
                       {transaction.type}
                     </span>
                   </td>
-                  <td className="actions-cell">
+                  <td className="iot-actions-cell">
                     <button
-                      className="action-btn-view-btn"
+                      className="iot-action-btn iot-action-btn-view"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleViewDetails(transaction);
@@ -577,7 +589,7 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
                       </svg>
                     </button>
                     <button
-                      className="action-btn-delete-btn"
+                      className="iot-action-btn iot-action-btn-delete"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteTransaction(transaction._id);
@@ -599,45 +611,46 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
           </table>
         )}
       </div>
- 
+
+      {/* Rest of the modals remain the same */}
       {/* Add Transaction Modal */}
       {open && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
+        <div className="iot-modal-overlay">
+          <div className="iot-modal-content">
+            <div className="iot-modal-header">
               <h2>Add New Transaction</h2>
-              <button className="close-btn" onClick={() => setOpen(false)}>×</button>
+              <button className="iot-close-btn" onClick={() => setOpen(false)}>×</button>
             </div>
            
-            <div className="modal-body">
-              <div className="form-group">
+            <div className="iot-modal-body">
+              <div className="iot-form-group">
                 <label className="required">Description</label>
                 <input
                   type="text"
-                  className="form-input"
+                  className="iot-form-input"
                   value={newTransaction.description}
                   onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
                   placeholder="Enter transaction description"
                   required
                 />
               </div>
- 
-              <div className="form-group">
+
+              <div className="iot-form-group">
                 <label className="required">Amount</label>
                 <input
                   type="number"
-                  className="form-input"
+                  className="iot-form-input"
                   value={newTransaction.amount}
                   onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
                   placeholder="Enter amount"
                   required
                 />
               </div>
- 
-              <div className="form-group">
+
+              <div className="iot-form-group">
                 <label className="required">Type</label>
                 <select
-                  className="form-select"
+                  className="iot-form-select"
                   value={newTransaction.type}
                   onChange={(e) => setNewTransaction({ ...newTransaction, type: e.target.value })}
                   required
@@ -648,11 +661,11 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
                   ))}
                 </select>
               </div>
- 
-              <div className="form-group">
+
+              <div className="iot-form-group">
                 <label className="required">Category</label>
                 <select
-                  className="form-select"
+                  className="iot-form-select"
                   value={newTransaction.category}
                   onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
                   required
@@ -665,53 +678,50 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
-                {!newTransaction.type && (
-                  <p className="form-hint"></p>
-                )}
               </div>
- 
-              <div className="form-group">
+
+              <div className="iot-form-group">
                 <label>Remarks</label>
                 <textarea
-                  className="form-textarea"
+                  className="iot-form-textarea"
                   value={newTransaction.remarks}
                   onChange={(e) => setNewTransaction({ ...newTransaction, remarks: e.target.value })}
                   rows="3"
                   placeholder="Add any additional notes or details..."
                 />
               </div>
- 
-              <div className="form-group">
+
+              <div className="iot-form-group">
                 <label>Attach Receipt (Optional)</label>
-                <div className="file-upload-section">
+                <div className="iot-file-upload-section">
                   <input
                     type="file"
-                    id="attachment-upload"
-                    className="file-input"
+                    id="iot-attachment-upload"
+                    className="iot-file-input"
                     accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"
                     onChange={handleFileUpload}
                   />
-                  <label htmlFor="attachment-upload" className="file-upload-label">
+                  <label htmlFor="iot-attachment-upload" className="iot-file-upload-label">
                     {newTransaction.attachment ? (
                       <>
-                        <span className="file-icon">📁</span>
+                        <span className="iot-file-icon">📁</span>
                         <span>{newTransaction.attachment.name}</span>
                       </>
                     ) : (
                       'CHOOSE FILE (PDF, IMAGE, DOCUMENT)'
                     )}
                   </label>
-                  <p className="file-hint">Max file size: 5MB • Supported: PDF, JPG, PNG, DOC, XLSX</p>
+                  <p className="iot-file-hint">Max file size: 5MB • Supported: PDF, JPG, PNG, DOC, XLSX</p>
                 </div>
               </div>
             </div>
- 
-            <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setOpen(false)}>
+
+            <div className="iot-modal-actions">
+              <button className="iot-btn-cancel" onClick={() => setOpen(false)}>
                 CANCEL
               </button>
               <button
-                className="btn-primary"
+                className="iot-btn-primary"
                 onClick={handleAddTransaction}
                 disabled={!newTransaction.description || !newTransaction.amount || !newTransaction.type || !newTransaction.category}
               >
@@ -721,79 +731,79 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
           </div>
         </div>
       )}
- 
+
       {/* Transaction Details Modal */}
       {detailModalOpen && selectedTransaction && (
-        <div className="modal-overlay">
-          <div className="modal-content details-modal">
-            <div className="modal-header">
+        <div className="iot-modal-overlay">
+          <div className="iot-modal-content iot-details-modal">
+            <div className="iot-modal-header">
               <h2>Transaction Details</h2>
-              <p className="read-only-note">Read Only - No editing allowed</p>
-              <button className="close-btn" onClick={handleCloseDetailModal}>×</button>
+              <p className="iot-read-only-note">Read Only - No editing allowed</p>
+              <button className="iot-close-btn" onClick={handleCloseDetailModal}>×</button>
             </div>
            
-            <div className="modal-body">
-              <div className="details-grid">
-                <div className="details-column">
-                  <div className="detail-item">
+            <div className="iot-modal-body">
+              <div className="iot-details-grid">
+                <div className="iot-details-column">
+                  <div className="iot-detail-item">
                     <label>Date</label>
                     <p>{formatDate(selectedTransaction.date)}</p>
                   </div>
-                  <div className="detail-item">
+                  <div className="iot-detail-item">
                     <label>Description</label>
                     <p>{selectedTransaction.description}</p>
                   </div>
-                  <div className="detail-item">
+                  <div className="iot-detail-item">
                     <label>Category</label>
-                    <span className={`category-tag ${selectedTransaction.type.toLowerCase()}`}>
+                    <span className={`iot-category-tag ${selectedTransaction.type.toLowerCase()}`}>
                       {selectedTransaction.category}
                     </span>
                   </div>
-                  <div className="detail-item">
+                  <div className="iot-detail-item">
                     <label>Type</label>
-                    <span className={`type-badge ${selectedTransaction.type.toLowerCase()}`}>
+                    <span className={`iot-type-badge ${selectedTransaction.type.toLowerCase()}`}>
                       {selectedTransaction.type}
                     </span>
                   </div>
                 </div>
                
-                <div className="details-column">
-                  <div className="detail-item">
+                <div className="iot-details-column">
+                  <div className="iot-detail-item">
                     <label>Amount</label>
-                    <p className={`amount-large ${selectedTransaction.type.toLowerCase()}`}>
+                    <p className={`iot-amount-large ${selectedTransaction.type.toLowerCase()}`}>
                       {formatCurrency(selectedTransaction.amount)}
                     </p>
                   </div>
-                  <div className="detail-item">
+                  <div className="iot-detail-item">
                     <label>Attachment</label>
                     {selectedTransaction.attachment ? (
-                      <div className="attachment-details">
-                        <span className="file-icon">📁</span>
-                        <span className="file-name">{selectedTransaction.attachment.originalName}</span>
+                      <div className="iot-attachment-details">
+                        <span className="iot-file-icon">📁</span>
+                        <span className="iot-file-name">{selectedTransaction.attachment.originalName}</span>
                         <button
-                          className="download-btn"
+                          className="iot-download-btn"
                           onClick={() => handleDownloadAttachment(selectedTransaction._id, selectedTransaction.attachment.originalName)}
                         >
                           Download
                         </button>
                       </div>
                     ) : (
-                      <p className="no-attachment">No attachment</p>
+                      <p className="iot-no-attachment">No attachment</p>
                     )}
                   </div>
                 </div>
               </div>
- 
-              <div className="remarks-section">
+
+              <div className="iot-remarks-section">
                 <label>Remarks</label>
-                <div className="remarks-box">
+                <div className="iot-remarks-box">
                   {selectedTransaction.remarks || 'No remarks provided'}
                 </div>
               </div>
             </div>
- 
-            <div className="modal-actions">
-              <button className="btn-primary full-width" onClick={handleCloseDetailModal}>
+
+            <div className="iot-modal-actions">
+              <button className="iot-btn-primary full-width" onClick={handleCloseDetailModal}>
                 CLOSE DETAILS
               </button>
             </div>
@@ -803,5 +813,5 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
     </div>
   );
 };
- 
+
 export default InOutTransactions;

@@ -36,6 +36,10 @@ const usePersistedSentEmails = () => {
 const ReportsBilling = () => {
   const [customers, setCustomers] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sentEmails, setSentEmails] = usePersistedSentEmails();
+  const [emailConfirmation, setEmailConfirmation] = useState({ show: false, invoice: null });
+
   const [disabledInvoices, setDisabledInvoices] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [items, setItems] = useState([{
@@ -67,10 +71,6 @@ const ReportsBilling = () => {
   const [endDate, setEndDate] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
 
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [sentEmails, setSentEmails] = usePersistedSentEmails();
-  const [emailConfirmation, setEmailConfirmation] = useState({ show: false, invoice: null });
-
   // NEW: Dedicated function for due date calculation
   const calculateDueDate = (invoiceDate, paymentTerms) => {
     if (!paymentTerms || !invoiceDate) {
@@ -82,6 +82,35 @@ const ReportsBilling = () => {
     dueDateObj.setDate(invoiceDateObj.getDate() + parseInt(paymentTerms));
    
     return dueDateObj.toISOString().split('T')[0];
+  };
+    const getDisplayStatus = (invoice) => {
+    const today = new Date();
+    const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
+    const invoiceDate = new Date(invoice.date);
+   
+    // If invoice is paid, show Paid
+    if (invoice.status === 'paid') {
+      return 'paid';
+    }
+   
+    // Calculate 30 days from invoice date for overdue calculation
+    const thirtyDaysFromInvoice = new Date(invoiceDate);
+    thirtyDaysFromInvoice.setDate(invoiceDate.getDate() + 30);
+   
+    // Check if invoice is overdue
+    const isOverdue = (dueDate && today > dueDate) || today > thirtyDaysFromInvoice;
+   
+    // For draft and sent invoices, determine display status
+    if (invoice.status === 'draft' || invoice.status === 'sent') {
+      if (isOverdue) {
+        return 'overdue';
+      } else {
+        return 'unpaid';
+      }
+    }
+   
+    // Fallback to database status
+    return invoice.status;
   };
 
   // ENHANCED: Handle customer selection with payment terms calculation
@@ -570,7 +599,7 @@ const handleConfirmSendEmail = async () => {
     return;
   }
 
-  const customerEmail = invoice.customerId?.email;
+  const customerEmail = invoice.customerId?.email; // ✅ Define customerEmail here
  
   if (!customerEmail) {
     alert('Customer email not found');
@@ -583,10 +612,10 @@ const handleConfirmSendEmail = async () => {
   try {
     // Step 1: Download the PDF as blob
     const pdfBlob = await billingService.downloadInvoiceBlob(invoice._id);
-    
+   
     // Step 2: Create object URL from blob
     const pdfBlobUrl = URL.createObjectURL(pdfBlob);
-    
+   
     // Step 3: Generate email details
     const invoiceNumber = invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`;
     const customerName = invoice.customerId?.name || 'Customer';
@@ -600,22 +629,22 @@ const handleConfirmSendEmail = async () => {
 
     // Step 4: Create a temporary link to trigger Outlook with attachment
     const outlookUrl = generateOutlookUrl(customerEmail, subject, body, pdfBlob, `Invoice-${invoiceNumber}.pdf`);
-    
+   
     // Step 5: Open Outlook
     openOutlookWithAttachment(outlookUrl, pdfBlobUrl);
 
     // Step 6: Update backend and UI state
     await updateInvoiceEmailStatus(invoice._id, invoice);
-    
+   
     // Step 7: Update local state
     updateLocalInvoiceState(invoice._id);
-    
+   
     console.log('✅ Outlook opened with PDF attachment ready');
 
   } catch (error) {
     console.error('Error preparing email with attachment:', error);
-    
-    // Fallback: Open Outlook without attachment
+   
+    // ✅ FIX: Use the customerEmail that's defined at the top
     const fallbackSuccess = await openOutlookFallback(invoice, customerEmail);
     if (fallbackSuccess) {
       updateLocalInvoiceState(invoice._id);
@@ -631,7 +660,7 @@ const generateOutlookUrl = (toEmail, subject, body, pdfBlob, fileName) => {
   // Method 1: Using Outlook's deep link (limited attachment support)
   const encodedSubject = encodeURIComponent(subject);
   const encodedBody = encodeURIComponent(body);
-  
+ 
   return `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(toEmail)}&subject=${encodedSubject}&body=${encodedBody}`;
 };
 
@@ -639,7 +668,7 @@ const generateOutlookUrl = (toEmail, subject, body, pdfBlob, fileName) => {
 const openOutlookWithAttachment = (outlookUrl, pdfBlobUrl) => {
   // Method 1: Try Outlook Web App first
   const outlookWindow = window.open(outlookUrl, '_blank', 'width=1000,height=700');
-  
+ 
   if (outlookWindow) {
     // Wait for window to load and try to attach file (limited by browser security)
     setTimeout(() => {
@@ -659,7 +688,7 @@ const openOutlookFallback = async (invoice, customerEmail) => {
   try {
     // Download PDF first
     await handleDownloadInvoice(invoice._id);
-    
+   
     // Then open Outlook with pre-filled details
     const invoiceNumber = invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`;
     const customerName = invoice.customerId?.name || 'Customer';
@@ -681,7 +710,7 @@ const openOutlookFallback = async (invoice, customerEmail) => {
     if (!outlookWindow || outlookWindow.closed) {
       window.open(outlookUrls[1], '_blank');
     }
-    
+   
     return true;
   } catch (error) {
     console.error('Fallback method failed:', error);
@@ -719,20 +748,21 @@ const updateInvoiceEmailStatus = async (invoiceId,invoice) => {
 };
 
 // Update local UI state
+// Update local UI state
 const updateLocalInvoiceState = (invoiceId) => {
   setInvoices(prevInvoices =>
     prevInvoices.map(inv =>
       inv._id === invoiceId
         ? {
             ...inv,
-            status: 'sent',
+            status: 'sent', // UPDATE STATUS TO 'sent'
             emailSent: true,
             emailSentAt: new Date()
           }
         : inv
     )
   );
-  
+ 
   setSentEmails(prev => {
     const newSet = new Set(prev).add(invoiceId);
     localStorage.setItem('sentInvoices', JSON.stringify([...newSet]));
@@ -808,7 +838,7 @@ const updateLocalInvoiceState = (invoiceId) => {
     } catch (error) {
       console.error("Error generating invoice:", error);
       let errorMessage = "Error generating invoice. Please try again.";
-    
+   
     if (error.response?.status === 404) {
       errorMessage = error.response.data?.message || "Company information not found. Please set up company details first.";
     } else if (error.response?.data?.message) {
@@ -943,135 +973,133 @@ const updateLocalInvoiceState = (invoiceId) => {
                           {new Date(invoice.date).toLocaleDateString()}
                         </td>
                         <td className="invoice-status" data-label="Status">
-                          <span className={`status-badge ${checkInvoiceStatus(invoice)}`}>
-                            {checkInvoiceStatus(invoice) === 'overdue' ? 'Overdue' :
-                             checkInvoiceStatus(invoice) === 'paid' ? 'Paid' : 'Unpaid'}
-                          </span>
-                        </td>
+  <span className={`status-badge ${getDisplayStatus(invoice)}`}>
+    {getDisplayStatus(invoice)}
+  </span>
+</td>
                         <td className="amount" data-label="Amount">
                           {currencySymbols[invoice.currency] || '$'}{formatInvoiceAmount(invoice)}
                         </td>
                         <td className="invoice-actions" data-label="Actions">
-                          <div className="inv-action-buttons responsive-actions">
-                            {/* Send Email Button - Only show for invoices that haven't been sent */}
-                            {invoice.status !== 'paid' && !invoice.emailSent && !sentEmails.has(invoice._id) && (
-                              <button
-                                className="inv-action-btn send"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSendEmail(invoice);
-                                }}
-                                title="Send via Email"
-                                disabled={sendingEmail}
-                              >
-                                {sendingEmail ? (
-                                  <span className="loading-spinner"></span>
-                                ) : (
-                                  // EMAIL ICON - Email not sent yet
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                    <polyline points="22,6 12,13 2,6"></polyline>
-                                  </svg>
-                                )}
-                              </button>
-                            )}
+  <div className="inv-action-buttons responsive-actions">
+    {/* Send Email Button - Only show for DRAFT invoices */}
+    {invoice.status === 'draft' && !invoice.emailSent && !sentEmails.has(invoice._id) && (
+      <button
+        className="inv-action-btn send"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleSendEmail(invoice);
+        }}
+        title="Send via Email"
+        disabled={sendingEmail}
+      >
+        {sendingEmail ? (
+          <span className="loading-spinner"></span>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+            <polyline points="22,6 12,13 2,6"></polyline>
+          </svg>
+        )}
+      </button>
+    )}
 
-                            {/* Show tick mark for invoices that have been sent (from backend or local state) */}
-                            {(invoice.emailSent || sentEmails.has(invoice._id)) && (
-                              <button
-                                className="inv-action-btn sent"
-                                title="Email Already Sent"
-                                disabled
-                              >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M20 6L9 17l-5-5" stroke="#10B981" fill="none"/>
-                                </svg>
-                              </button>
-                            )}
-                           
-                            {/* Edit Button - Disabled when paid OR email has been sent */}
-                            <button
-                              className={`inv-action-btn edit ${(invoice.status === 'paid' || invoice.emailSent || sentEmails.has(invoice._id)) ? 'disabled' : ''}`}
-                              onClick={(e) => {
-                                if (invoice.status !== 'paid' && !invoice.emailSent && !sentEmails.has(invoice._id)) {
-                                  e.stopPropagation();
-                                  handleEditInvoice(invoice);
-                                }
-                              }}
-                              title={
-                                invoice.status === 'paid' ?
-                                  'Cannot edit paid invoices' :
-                                invoice.emailSent || sentEmails.has(invoice._id) ?
-                                  'Cannot edit invoices that have been sent' :
-                                  'Edit Invoice'
-                              }
-                              disabled={invoice.status === 'paid' || invoice.emailSent || sentEmails.has(invoice._id)}
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                              </svg>
-                            </button>
-                           
-                            {/* Download Button - Always available */}
-                            <button
-                              className="inv-action-btn download"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadInvoice(invoice._id);
-                              }}
-                              title="Download Invoice"
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7 10 12 15 17 10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                              </svg>
-                            </button>
-                           
-                            {/* View Payment Proof Button - Only for paid invoices with proof */}
-                            {invoice.status === 'paid' && invoice.paymentDetails?.proofFile && (
-                              <button
-                                className="inv-action-btn view-proof"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleViewPaymentProof(invoice);
-                                }}
-                                title="View Payment Proof"
-                              >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                  <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                              </button>
-                            )}
-                           
-                            {/* Verify Payment Button - Only for unpaid invoices */}
-                            {invoice.status !== 'paid' && (
-                              <button
-                                className="inv-action-btn verify-payment"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openPaymentModal(invoice);
-                                }}
-                                title="Verify Payment"
-                              >
-                                Verify
-                              </button>
-                            )}
-                           
-                            <button
-                              className="inv-action-btn disable"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDisableInvoice(invoice._id);
-                              }}
-                              title="Disable Invoice"
-                            >
-                              Disable
-                            </button>
-                          </div>
-                        </td>
+    {/* Show tick mark for invoices that have been sent (status = 'sent') */}
+    {(invoice.status === 'sent' || invoice.emailSent || sentEmails.has(invoice._id)) && (
+      <button
+        className="inv-action-btn sent"
+        title="Email Already Sent"
+        disabled
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M20 6L9 17l-5-5" stroke="#10B981" fill="none"/>
+        </svg>
+      </button>
+    )}
+   
+    {/* Edit Button - Disabled when email is sent (status = 'sent') OR when paid */}
+<button
+  className={`inv-action-btn edit ${(invoice.status === 'paid' || invoice.status === 'sent') ? 'disabled' : ''}`}
+  onClick={(e) => {
+    if (invoice.status === 'draft') { // Only allow editing for draft invoices
+      e.stopPropagation();
+      handleEditInvoice(invoice);
+    }
+  }}
+  title={
+    invoice.status === 'paid' ?
+      'Cannot edit paid invoices' :
+    invoice.status === 'sent' ?
+      'Cannot edit invoices that have been sent' : // This is the main condition
+      'Edit Invoice'
+  }
+  disabled={invoice.status === 'paid' || invoice.status === 'sent'} // Disable when sent OR paid
+>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+  </svg>
+</button>
+   
+    {/* Download Button - Always available */}
+    <button
+      className="inv-action-btn download"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleDownloadInvoice(invoice._id);
+      }}
+      title="Download Invoice"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+    </button>
+   
+    {/* View Payment Proof Button - Only for paid invoices with proof */}
+    {invoice.status === 'paid' && invoice.paymentDetails?.proofFile && (
+      <button
+        className="inv-action-btn view-proof"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleViewPaymentProof(invoice);
+        }}
+        title="View Payment Proof"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+      </button>
+    )}
+   
+    {/* Verify Payment Button - Only for SENT invoices (not draft, not paid) in DATABASE */}
+{invoice.status === 'sent' && invoice.status !== 'paid' && (
+  <button
+    className="inv-action-btn verify-payment"
+    onClick={(e) => {
+      e.stopPropagation();
+      openPaymentModal(invoice);
+    }}
+    title="Verify Payment"
+  >
+    Verify
+  </button>
+)}
+   
+    <button
+      className="inv-action-btn disable"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleDisableInvoice(invoice._id);
+      }}
+      title="Disable Invoice"
+    >
+      Disable
+    </button>
+  </div>
+</td>
                       </tr>
                     );
                   })
