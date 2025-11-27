@@ -502,20 +502,7 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
       </div>
 
       {/* Info Message */}
-      {!areFiltersActive() && (
-        <div style={{
-          background: '#f0f9ff',
-          border: '1px solid #bae6fd',
-          borderRadius: '8px',
-          padding: '1rem',
-          marginBottom: '1.5rem',
-          textAlign: 'center',
-          color: '#0369a1',
-          fontSize: '0.9rem'
-        }}>
-          💡 <strong>Showing recent transactions only</strong> (last 30 days). Apply filters to view all transactions.
-        </div>
-      )}
+
 
       {/* Transactions Table */}
       <div className="iot-table-container">

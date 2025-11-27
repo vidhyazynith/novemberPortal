@@ -32,7 +32,8 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
   
   // State for address dropdowns
   const [countries, setCountries] = useState([]);
-  const [addressLoading, setAddressLoading] = useState({
+  const [states, setStates] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState({
     countries: false,
   });
 
@@ -118,38 +119,61 @@ const EmployeeManagement = ({ onEmployeeUpdate }) => {
     }
   };
 
-  // useEffect(() => {
-  //   loadEmployees();
-  //   loadCategories(); // Load categories when component mounts
-  // }, []);
+  useEffect(() => {
+    loadCountries();
+  } , []);
 
-    // Load countries
-  const loadCountries = async () => {
-    setAddressLoading(prev => ({ ...prev, countries: true }));
+  // Load countries
+
+    const loadCountries = async () => {
     try {
-      const response = await employeeService.getCountries();
-      console.log('Countries response:', response);
-     
-      if (response && response.countries) {
-        setCountries(response.countries);
-        console.log('✅ Countries loaded:', response.countries.length);
-      } else {
-        console.error('❌ Invalid countries response format');
-        setCountries([]);
-      }
+      setLoadingLocations(true);
+      const countriesData = await employeeService.getCountries();
+      setCountries(countriesData);
     } catch (error) {
       console.error('Error loading countries:', error);
       setError('Failed to load countries list');
-      setCountries([]);
     } finally {
-      setAddressLoading(prev => ({ ...prev, countries: false }));
+      setLoadingLocations(false);
     }
   };
+
+   const handleCountryChange = async (countryCode, isEdit = false) => {
+    setFormData(prev => ({
+      ...prev,
+      country: countryCode,
+      state: isEdit ? prev.state : '',   // 👈 keep old state when editing
+      city: isEdit ? prev.city : ''
+    }));
+    setStates([]);
+   
+if (countryCode) {
+    try {
+      setLoadingLocations(true);
+      const statesData = await employeeService.getStates(countryCode);
+     
+      // Ensure statesData is always an array
+      if (Array.isArray(statesData)) {
+        setStates(statesData);
+      } else {
+        console.error('States data is not an array:', statesData);
+        setStates([]);
+        setError('Failed to load states list - invalid data format');
+      }
+    } catch (error) {
+      console.error('Error loading states:', error);
+      setError('Failed to load states list');
+      setStates([]); // Ensure states is always an array
+    } finally {
+      setLoadingLocations(false);
+    }
+   }
+  };
+
 
   useEffect(() => {
     loadEmployees();
     loadCategories();
-    loadCountries();
   }, []);
 
     // NEW: Function to check if email already exists
@@ -677,6 +701,15 @@ const handleUpdateEmployee = async (e) => {
       joiningDate: employee.joiningDate ? employee.joiningDate.split('T')[0] : '',
       status: employee.status || 'Active'
     });
+
+    if (employee.address?.country) {
+      handleCountryChange(employee.address.country, true);
+    }
+    setFormData((prev) => ({
+      ...prev,
+      state: employee.address.state || ''
+    }));
+
     setPhoneError(''); // Clear phone error when editing
     setEmailError('');
     setPanError('');
@@ -699,7 +732,9 @@ const handleUpdateEmployee = async (e) => {
           } else {
             setPanError('PAN number is required');
           }
-        } 
+        } else if (name === 'country'){
+          handleCountryChange(value);
+        }
     //     else if (name === 'pinCode') {
     //   // Only allow numbers for PIN code
     //   const numericValue = value.replace(/\D/g, '');
@@ -854,7 +889,7 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
         </div>
         <div className="stat-content">
           <div className="stat-number">{employees.length}</div>
-          <div className="stat-label">Total Employees</div>
+          <div className="stat-label">All Employees</div>
         </div>
       </div>
 
@@ -869,7 +904,7 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
           <div className="stat-number">
             {employees.filter(emp => emp.status === 'Active').length}
           </div>
-          <div className="stat-label">Active Employees</div>
+          <div className="stat-label">Current Employees</div>
         </div>
       </div>
 
@@ -1120,7 +1155,7 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
                     onChange={handleInputChange}
                     placeholder="Enter email address"
                     required
-className={emailError ? 'invalid-input' : ''}
+                    className={emailError ? 'invalid-input' : ''}
                   />
                   {emailError && (
                     <small className="error-text" style={{ color: '#dc2626', marginTop: '4px' }}>
@@ -1305,42 +1340,45 @@ className={emailError ? 'invalid-input' : ''}
                   </div>
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="country">Country *</label>
-                    <select
-                      id="country"
-                      name="country"
-                      value={formData.country}
-                      onChange={handleInputChange}
-                      required
-                      disabled={addressLoading.countries}
-                    >
-                      <option value="">{addressLoading.countries ? 'Loading countries...' : 'Select Country'}</option>
-                      {countries.map((country, index) => (
-                        <option key={country.id || index} value={country.name}>
-                          {country.name}
-                        </option>
-                      ))}
-                    </select>
-                    {addressLoading.countries && (
-                      <small style={{ color: '#64748b' }}>Loading countries...</small>
-                    )}
-                  </div>
-                 
-                  <div className="form-group">
-                    <label htmlFor="state">State *</label>
-                    <input
-                      type="text"
-                      id="state"
-                      name="state"
-                      value={formData.state}
-                      onChange={handleInputChange}
-                      placeholder="Enter state"
-                      required
-                    />
-                  </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="country">Country *</label>
+                  <select
+                    id="country"
+                    name="country"
+                    value={formData.country}
+                    onChange={handleInputChange}
+                    required
+                    disabled={loadingLocations}
+                  >
+                    <option value="">{loadingLocations ? 'Loading countries...' : 'Select Country'}</option>
+                    {countries.map(country => (
+                      <option key={country.iso2} value={country.iso2}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                 
+                <div className="form-group">
+                  <label htmlFor="state">State *</label>
+                  <select
+                  id="state"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleInputChange}
+                  required
+                  disabled={!formData.country || loadingLocations}
+                  >
+                  <option value="">{loadingLocations ? 'Loading states...' : 'Select State'}</option>
+                  {Array.isArray(states) && states.map(state => (
+                  <option key={state.iso2} value={state.iso2}>
+                  {state.name}
+                  </option>
+                  ))}
+                    </select>
+                </div>
+              </div>
 
                 
                 <div className="form-row">

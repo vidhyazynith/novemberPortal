@@ -1220,3 +1220,207 @@ button.inv-action-btn.edit.disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
+/* Enhanced Filter Section with Larger Fields */
+.filters-section.standalone-filters {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 18px 22px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+ 
+.filters-section.standalone-filters .filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+ 
+.filters-section.standalone-filters .filter-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 160px;
+  max-width: 220px;
+}
+ 
+/* Enlarged field sizes for better balance */
+.filters-section.standalone-filters .search-group {
+  min-width: 280px;
+  flex: 2;
+}
+ 
+.filters-section.standalone-filters .status-group {
+  min-width: 150px;
+  margin-left: 8px;
+}
+ 
+.filters-section.standalone-filters .date-group {
+  min-width: 160px;
+  margin-left: 6px;
+}
+ 
+.filters-section.standalone-filters .custom-date-group {
+  min-width: 150px;
+  margin-left: 4px;
+}
+ 
+.filters-section.standalone-filters .reset-group {
+  min-width: 90px;
+  max-width: 90px;
+  margin-left: 8px;
+}
+ 
+/* Enhanced label styling */
+.filters-section.standalone-filters .filter-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+ 
+/* Enlarged input styling */
+.filters-section.standalone-filters .filter-inputs,
+.filters-section.standalone-filters .filter-select {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  height: 42px;
+  box-sizing: border-box;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+ 
+.filters-section.standalone-filters .filter-inputs:focus,
+.filters-section.standalone-filters .filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+ 
+.filters-section.standalone-filters .search-inputs {
+  min-width: 100%;
+}
+ 
+/* Enlarged reset button */
+.filters-section.standalone-filters .reset-filters-btn {
+  padding: 10px 18px;
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  height: 42px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+ 
+.filters-section.standalone-filters .reset-filters-btn:hover {
+  background: #4b5563;
+  transform: translateY(-1px);
+}
+ 
+/* Enhanced results count */
+.filters-section.standalone-filters .filter-results {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 10px;
+}
+ 
+/* Better balanced layout for custom date range */
+.filters-section.standalone-filters .custom-date-filters {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+ 
+.filters-section.standalone-filters .custom-date-group {
+  flex: 1;
+}
+ 
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .filters-section.standalone-filters .filter-controls {
+    gap: 16px;
+  }
+ 
+  .filters-section.standalone-filters .search-group {
+    min-width: 240px;
+    flex: 1.5;
+  }
+}
+ 
+@media (max-width: 1024px) {
+  .filters-section.standalone-filters {
+    padding: 16px 20px;
+  }
+ 
+  .filters-section.standalone-filters .filter-controls {
+    gap: 14px;
+  }
+ 
+  .filters-section.standalone-filters .filter-group {
+    min-width: 150px;
+    max-width: 200px;
+  }
+ 
+  .filters-section.standalone-filters .search-group {
+    min-width: 220px;
+  }
+}
+ 
+@media (max-width: 768px) {
+  .filters-section.standalone-filters {
+    padding: 16px;
+  }
+ 
+  .filters-section.standalone-filters .filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+ 
+  .filters-section.standalone-filters .filter-group {
+    min-width: 100%;
+    max-width: 100%;
+    margin-left: 0 !important;
+  }
+ 
+  .filters-section.standalone-filters .search-group {
+    min-width: 100%;
+  }
+ 
+  .filters-section.standalone-filters .reset-filters-btn {
+    align-self: flex-start;
+    min-width: 80px;
+  }
+ 
+  /* Stack custom date filters on mobile */
+  .filters-section.standalone-filters .custom-date-filters {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+ 
+@media (max-width: 480px) {
+  .filters-section.standalone-filters {
+    padding: 14px;
+  }
+ 
+  .filters-section.standalone-filters .filter-inputs,
+  .filters-section.standalone-filters .filter-select,
+  .filters-section.standalone-filters .reset-filters-btn {
+    font-size: 16px;
+    height: 44px;
+  }
+}            

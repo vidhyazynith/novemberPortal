@@ -258,7 +258,7 @@ const Admin = () => {
                 <div className="stat-icon">👥</div>
                 <div className="stat-content">
                   <h3>Total Employees</h3>
-                  <span className="stat-number">{formatNumber(employees.length)}</span>
+                  <span className="stat-number">{employees.filter(emp => emp.status === 'Active').length}</span>
                   <span className="stat-change positive">
                     Active workforce
                   </span>

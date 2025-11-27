@@ -66,6 +66,12 @@ const ReportsBilling = () => {
   const [transactionProof, setTransactionProof] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
 
+  // Add these new states near your existing useState declarations
+const [searchTerm, setSearchTerm] = useState('');
+const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'thisWeek', 'thisMonth', 'custom'
+const [customStartDate, setCustomStartDate] = useState('');
+const [customEndDate, setCustomEndDate] = useState('');
+const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'paid', 'unpaid', 'overdue'
   // New states for Profit & Loss report
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -112,6 +118,92 @@ const ReportsBilling = () => {
     // Fallback to database status
     return invoice.status;
   };
+
+
+  // Reset filters function
+const resetFilters = () => {
+  setSearchTerm('');
+  setDateFilter('all');
+  setStatusFilter('all');
+  setCustomStartDate('');
+  setCustomEndDate('');
+};
+
+  // Filter invoices based on search term, date, and status
+const getFilteredInvoices = (invoicesList) => {
+  return invoicesList.filter(invoice => {
+    // Search term filter
+    const matchesSearch = searchTerm === '' ||
+      invoice.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.customerId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.customerId?.company?.toLowerCase().includes(searchTerm.toLowerCase());
+ 
+    // Status filter
+    const invoiceStatus = checkInvoiceStatus(invoice);
+    const matchesStatus = statusFilter === 'all' || invoiceStatus === statusFilter;
+ 
+    // Date filter
+    const invoiceDate = new Date(invoice.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+   
+    let matchesDate = true;
+   
+    switch (dateFilter) {
+      case 'today':
+        const todayStart = new Date(today);
+        const todayEnd = new Date(today);
+        todayEnd.setHours(23, 59, 59, 999);
+        matchesDate = invoiceDate >= todayStart && invoiceDate <= todayEnd;
+        break;
+     
+      case 'thisWeek':
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+        matchesDate = invoiceDate >= weekStart && invoiceDate <= weekEnd;
+        break;
+     
+      case 'thisMonth':
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        monthEnd.setHours(23, 59, 59, 999);
+        matchesDate = invoiceDate >= monthStart && invoiceDate <= monthEnd;
+        break;
+     
+      case 'custom':
+        if (customStartDate && customEndDate) {
+          const start = new Date(customStartDate);
+          const end = new Date(customEndDate);
+          end.setHours(23, 59, 59, 999);
+          matchesDate = invoiceDate >= start && invoiceDate <= end;
+        }
+        break;
+     
+      default: // 'all'
+        matchesDate = true;
+    }
+ 
+    return matchesSearch && matchesStatus && matchesDate;
+  });
+};
+ 
+ 
+// ✅ CORRECT ORDER - define functions FIRST
+const getAllInvoices = () => {
+  return invoices.sort((a, b) => new Date(b.date) - new Date(a.date));
+};
+ 
+const getDisabledInvoicesList = () => {
+  return disabledInvoices.sort((a, b) => new Date(b.date) - new Date(a.date));
+};
+ 
+// THEN use/call the functions AFTER they're defined
+const filteredInvoices = getFilteredInvoices(getAllInvoices());
+const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
+
 
   // ENHANCED: Handle customer selection with payment terms calculation
   const handleCustomerChange = (customerId) => {
@@ -852,16 +944,6 @@ const updateLocalInvoiceState = (invoiceId) => {
     }
   };
 
-  // Get all invoices sorted by date (newest first)
-  const getAllInvoices = () => {
-    return invoices.sort((a, b) => new Date(b.date) - new Date(a.date));
-  };
-
-  // Get disabled invoices sorted by date (newest first)
-  const getDisabledInvoicesList = () => {
-    return disabledInvoices.sort((a, b) => new Date(b.date) - new Date(a.date));
-  };
-
   // Handle sending email with confirmation popup
   const handleSendEmail = async (invoice) => {
     // Show confirmation popup first
@@ -920,7 +1002,96 @@ const updateLocalInvoiceState = (invoiceId) => {
             </div>
           </div>
         </div>
-     
+     {/* FILTER SECTION - COMPACT VERSION */}
+        <div className="filters-section standalone-filters compact">
+          <div className="filter-controls">
+            {/* Search Filter */}
+            <div className="filter-group search-group">
+              <label className="filter-label">Search</label>
+              <input
+                type="text"
+                className="filter-inputs search-inputs"
+                placeholder="Search by invoice number, customer..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+ 
+            {/* Status Filter */}
+            <div className="filter-group status-group">
+              <label className="filter-label">Status</label>
+              <select
+                className="filter-select"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Status</option>
+                <option value="paid">Paid</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="overdue">Overdue</option>
+              </select>
+            </div>
+ 
+            {/* Date Filter */}
+            <div className="filter-group date-group">
+              <label className="filter-label">Date Range</label>
+              <select
+                className="filter-select"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+              >
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="thisWeek">This Week</option>
+                <option value="thisMonth">This Month</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+ 
+            {/* Custom Date Range - Only show when custom is selected */}
+            {dateFilter === 'custom' && (
+              <>
+                <div className="filter-group custom-date-group">
+                  <label className="filter-label">From</label>
+                  <input
+                    type="date"
+                    className="filter-inputs date-input"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="filter-group custom-date-group">
+                  <label className="filter-label">To</label>
+                  <input
+                    type="date"
+                    className="filter-inputs date-input"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+ 
+            {/* Reset Filters Button */}
+            <div className="filter-group reset-group">
+              <label className="filter-label">&nbsp;</label>
+              <button
+                className="reset-filters-btn"
+                onClick={resetFilters}
+                title="Reset all filters"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+ 
+          {/* Results Count */}
+          <div className="filter-results">
+            Showing {activeTab === 'active' ? filteredInvoices.length : filteredDisabledInvoices.length}
+            of {activeTab === 'active' ? getAllInvoices().length : getDisabledInvoicesList().length} invoices
+          </div>
+        </div>  
+
         {/* Invoice History / Disabled Invoices */}
         <div className="report-card invoice-history-card">
           <div className="card-header responsive-header">
@@ -955,223 +1126,234 @@ const updateLocalInvoiceState = (invoiceId) => {
                   <th className="column-actions">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {activeTab === 'active' ? (
-                  // Active Invoices
-                  getAllInvoices().map(invoice => {
-                    const status = checkInvoiceStatus(invoice);
-                    return (
-                      <tr key={invoice._id}>
-                        <td className="invoice-number" data-label="Invoice Number">
-                          {invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`}
-                        </td>
-                        <td className="customer-info" data-label="Customer">
-                          <div className="customer-name">{invoice.customerId?.name || 'N/A'}</div>
-                          <div className="customer-id">{invoice.customerId?.customerId || ''}</div>
-                        </td>
-                        <td className="invoice-date" data-label="Date">
-                          {new Date(invoice.date).toLocaleDateString()}
-                        </td>
-                        <td className="invoice-status" data-label="Status">
-  <span className={`status-badge ${getDisplayStatus(invoice)}`}>
-    {getDisplayStatus(invoice)}
-  </span>
-</td>
-                        <td className="amount" data-label="Amount">
-                          {currencySymbols[invoice.currency] || '$'}{formatInvoiceAmount(invoice)}
-                        </td>
-                        <td className="invoice-actions" data-label="Actions">
-  <div className="inv-action-buttons responsive-actions">
-    {/* Send Email Button - Only show for DRAFT invoices */}
-    {invoice.status === 'draft' && !invoice.emailSent && !sentEmails.has(invoice._id) && (
-      <button
-        className="inv-action-btn send"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleSendEmail(invoice);
-        }}
-        title="Send via Email"
-        disabled={sendingEmail}
-      >
-        {sendingEmail ? (
-          <span className="loading-spinner"></span>
-        ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-            <polyline points="22,6 12,13 2,6"></polyline>
-          </svg>
-        )}
-      </button>
-    )}
 
-    {/* Show tick mark for invoices that have been sent (status = 'sent') */}
-    {(invoice.status === 'sent' || invoice.emailSent || sentEmails.has(invoice._id)) && (
-      <button
-        className="inv-action-btn sent"
-        title="Email Already Sent"
-        disabled
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M20 6L9 17l-5-5" stroke="#10B981" fill="none"/>
-        </svg>
-      </button>
-    )}
-   
-    {/* Edit Button - Disabled when email is sent (status = 'sent') OR when paid */}
-<button
-  className={`inv-action-btn edit ${(invoice.status === 'paid' || invoice.status === 'sent') ? 'disabled' : ''}`}
-  onClick={(e) => {
-    if (invoice.status === 'draft') { // Only allow editing for draft invoices
-      e.stopPropagation();
-      handleEditInvoice(invoice);
-    }
-  }}
-  title={
-    invoice.status === 'paid' ?
-      'Cannot edit paid invoices' :
-    invoice.status === 'sent' ?
-      'Cannot edit invoices that have been sent' : // This is the main condition
-      'Edit Invoice'
-  }
-  disabled={invoice.status === 'paid' || invoice.status === 'sent'} // Disable when sent OR paid
->
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-  </svg>
-</button>
-   
-    {/* Download Button - Always available */}
-    <button
-      className="inv-action-btn download"
-      onClick={(e) => {
-        e.stopPropagation();
-        handleDownloadInvoice(invoice._id);
-      }}
-      title="Download Invoice"
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="7 10 12 15 17 10"></polyline>
-        <line x1="12" y1="15" x2="12" y2="3"></line>
-      </svg>
-    </button>
-   
-    {/* View Payment Proof Button - Only for paid invoices with proof */}
-    {invoice.status === 'paid' && invoice.paymentDetails?.proofFile && (
-      <button
-        className="inv-action-btn view-proof"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleViewPaymentProof(invoice);
-        }}
-        title="View Payment Proof"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-          <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-      </button>
-    )}
-   
-    {/* Verify Payment Button - Only for SENT invoices (not draft, not paid) in DATABASE */}
-{invoice.status === 'sent' && invoice.status !== 'paid' && (
-  <button
-    className="inv-action-btn verify-payment"
-    onClick={(e) => {
-      e.stopPropagation();
-      openPaymentModal(invoice);
-    }}
-    title="Verify Payment"
-  >
-    Verify
-  </button>
-)}
-   
-    <button
-      className="inv-action-btn disable"
-      onClick={(e) => {
-        e.stopPropagation();
-        handleDisableInvoice(invoice._id);
-      }}
-      title="Disable Invoice"
-    >
-      Disable
-    </button>
-  </div>
-</td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  // Disabled Invoices
-                  getDisabledInvoicesList().map(invoice => {
-                    const status = checkInvoiceStatus(invoice);
-                    return (
-                      <tr key={invoice._id} className="disabled-row">
-                        <td className="invoice-number" data-label="Invoice Number">
-                          {invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`}
-                        </td>
-                        <td className="customer-info" data-label="Customer">
-                          <div className="customer-name">{invoice.customerId?.name || 'N/A'}</div>
-                          <div className="customer-id">{invoice.customerId?.customerId || ''}</div>
-                        </td>
-                        <td className="invoice-date" data-label="Date">
-                          {new Date(invoice.date).toLocaleDateString()}
-                        </td>
-                        <td className="invoice-status" data-label="Status">
-                          <span className={`status-badge ${status} disabled`}>
-                            {status === 'overdue' ? 'Overdue' :
-                             status === 'paid' ? 'Paid' : 'Unpaid'}
-                          </span>
-                        </td>
-                        <td className="amount" data-label="Amount">
-                          {currencySymbols[invoice.currency] || '$'}{formatInvoiceAmount(invoice)}
-                        </td>
-                        <td className="invoice-actions" data-label="Actions">
-                          <div className="inv-action-buttons responsive-actions">
-                            <button
-                              className="inv-action-btn restore"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRestoreInvoice(invoice._id);
-                              }}
-                              title="Restore Invoice"
-                            >
-                              Restore
-                            </button>
-                           
-                            <button
-                              className="inv-action-btn permanent-delete"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePermanentDelete(invoice._id);
-                              }}
-                              title="Permanently Delete"
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M3 6h18"></path>
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                <line x1="10" y1="11" x2="10" y2="17"></line>
-                                <line x1="14" y1="11" x2="14" y2="17"></line>
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-                {(activeTab === 'active' && getAllInvoices().length === 0) ||
-                 (activeTab === 'disabled' && getDisabledInvoicesList().length === 0) && (
-                  <tr>
-                    <td colSpan="6" className="no-data-message">
-                      {activeTab === 'active' ? 'No active invoices found' : 'No disabled invoices found'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
+                      {/* REPLACE THE ENTIRE EXISTING TBODY WITH THIS FILTERED VERSION */}
+    <tbody>
+      {activeTab === 'active' ? (
+        // Active Invoices - use filteredInvoices instead of getAllInvoices()
+        filteredInvoices.length > 0 ? (
+          filteredInvoices.map(invoice => {
+            const status = checkInvoiceStatus(invoice);
+            return (
+              <tr key={invoice._id}>
+                <td className="invoice-number" data-label="Invoice Number">
+                  {invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`}
+                </td>
+                <td className="customer-info" data-label="Customer">
+                  <div className="customer-name">{invoice.customerId?.name || 'N/A'}</div>
+                  <div className="customer-id">{invoice.customerId?.customerId || ''}</div>
+                </td>
+                <td className="invoice-date" data-label="Date">
+                  {new Date(invoice.date).toLocaleDateString()}
+                </td>
+                <td className="invoice-status" data-label="Status">
+                  <span className={`status-badge ${checkInvoiceStatus(invoice)}`}>
+                    {checkInvoiceStatus(invoice) === 'overdue' ? 'Overdue' :
+                     checkInvoiceStatus(invoice) === 'paid' ? 'Paid' : 'Unpaid'}
+                  </span>
+                </td>
+                <td className="amount" data-label="Amount">
+                  {currencySymbols[invoice.currency] || '$'}{formatInvoiceAmount(invoice)}
+                </td>
+                <td className="invoice-actions" data-label="Actions">
+                  <div className="inv-action-buttons responsive-actions">
+                    {/* Send Email Button - Only show for invoices that haven't been sent */}
+                    {invoice.status !== 'paid' && !invoice.emailSent && !sentEmails.has(invoice._id) && (
+                      <button
+                        className="inv-action-btn send"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSendEmail(invoice);
+                        }}
+                        title="Send via Email"
+                        disabled={sendingEmail}
+                      >
+                        {sendingEmail ? (
+                          <span className="loading-spinner"></span>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <polyline points="22,6 12,13 2,6"></polyline>
+                          </svg>
+                        )}
+                      </button>
+                    )}
+ 
+                    {/* Show tick mark for invoices that have been sent */}
+                    {(invoice.emailSent || sentEmails.has(invoice._id)) && (
+                      <button
+                        className="inv-action-btn sent"
+                        title="Email Already Sent"
+                        disabled
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20 6L9 17l-5-5" stroke="#10B981" fill="none"/>
+                        </svg>
+                      </button>
+                    )}
+                   
+                    {/* Edit Button */}
+                    <button
+                      className={`inv-action-btn edit ${(invoice.status === 'paid' || invoice.emailSent || sentEmails.has(invoice._id)) ? 'disabled' : ''}`}
+                      onClick={(e) => {
+                        if (invoice.status !== 'paid' && !invoice.emailSent && !sentEmails.has(invoice._id)) {
+                          e.stopPropagation();
+                          handleEditInvoice(invoice);
+                        }
+                      }}
+                      title={
+                        invoice.status === 'paid' ?
+                          'Cannot edit paid invoices' :
+                        invoice.emailSent || sentEmails.has(invoice._id) ?
+                          'Cannot edit invoices that have been sent' :
+                          'Edit Invoice'
+                      }
+                      disabled={invoice.status === 'paid' || invoice.emailSent || sentEmails.has(invoice._id)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                      </svg>
+                    </button>
+                   
+                    {/* Download Button */}
+                    <button
+                      className="inv-action-btn download"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadInvoice(invoice._id);
+                      }}
+                      title="Download Invoice"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                    </button>
+                   
+                    {/* View Payment Proof Button */}
+                    {invoice.status === 'paid' && invoice.paymentDetails?.proofFile && (
+                      <button
+                        className="inv-action-btn view-proof"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewPaymentProof(invoice);
+                        }}
+                        title="View Payment Proof"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                      </button>
+                    )}
+                   
+                    {/* Verify Payment Button */}
+                    {invoice.status !== 'paid' && (
+                      <button
+                        className="inv-action-btn verify-payment"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPaymentModal(invoice);
+                        }}
+                        title="Verify Payment"
+                      >
+                        Verify
+                      </button>
+                    )}
+                   
+                    <button
+                      className="inv-action-btn disable"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDisableInvoice(invoice._id);
+                      }}
+                      title="Disable Invoice"
+                    >
+                      Disable
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })
+        ) : (
+          <tr>
+            <td colSpan="6" className="no-data-message">
+              No invoices found matching your filters
+            </td>
+          </tr>
+        )
+      ) : (
+        // Disabled Invoices - use filteredDisabledInvoices instead of getDisabledInvoicesList()
+        filteredDisabledInvoices.length > 0 ? (
+          filteredDisabledInvoices.map(invoice => {
+            const status = checkInvoiceStatus(invoice);
+            return (
+              <tr key={invoice._id} className="disabled-row">
+                <td className="invoice-number" data-label="Invoice Number">
+                  {invoice.invoiceNumber || `INV-${invoice._id.toString().slice(-6).toUpperCase()}`}
+                </td>
+                <td className="customer-info" data-label="Customer">
+                  <div className="customer-name">{invoice.customerId?.name || 'N/A'}</div>
+                  <div className="customer-id">{invoice.customerId?.customerId || ''}</div>
+                </td>
+                <td className="invoice-date" data-label="Date">
+                  {new Date(invoice.date).toLocaleDateString()}
+                </td>
+                <td className="invoice-status" data-label="Status">
+                  <span className={`status-badge ${status} disabled`}>
+                    {status === 'overdue' ? 'Overdue' :
+                     status === 'paid' ? 'Paid' : 'Unpaid'}
+                  </span>
+                </td>
+                <td className="amount" data-label="Amount">
+                  {currencySymbols[invoice.currency] || '$'}{formatInvoiceAmount(invoice)}
+                </td>
+                <td className="invoice-actions" data-label="Actions">
+                  <div className="inv-action-buttons responsive-actions">
+                    <button
+                      className="inv-action-btn restore"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRestoreInvoice(invoice._id);
+                      }}
+                      title="Restore Invoice"
+                    >
+                      Restore
+                    </button>
+                   
+                    <button
+                      className="inv-action-btn permanent-delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePermanentDelete(invoice._id);
+                      }}
+                      title="Permanently Delete"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 6h18"></path>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })
+        ) : (
+          <tr>
+            <td colSpan="6" className="no-data-message">
+              No disabled invoices found matching your filters
+            </td>
+          </tr>
+        )
+      )}
+    </tbody>
             </table>
           </div>
         </div>

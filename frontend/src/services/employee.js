@@ -19,39 +19,18 @@ export const employeeService = {
   },
 
   async getCountries() {
-  try {
-    console.log('🌍 Fetching countries from REST Countries API...');
-   
-    const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2,cca3');
-   
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-   
-    const countries = await response.json();
-   
-    // Debug: Log what we're getting
-    console.log('📊 Raw countries data sample:', countries.slice(0, 3));
-   
-    const formattedCountries = countries.map(country => ({
-      id: country.cca2,
-      code: country.cca2,
-      name: country.name.common
-    })).sort((a, b) => a.name.localeCompare(b.name));
-   
-    console.log('✅ Countries formatted:', formattedCountries.length);
-    console.log('🔍 Sample formatted countries:', formattedCountries.slice(0, 5));
-   
-    return {
-      success: true,
-      countries: formattedCountries
-    };
-   
-  } catch (error) {
-    console.error('❌ Error fetching countries:', error);
-    throw error;
-  }
-},
+    const response = await fetch('https://api.countrystatecity.in/v1/countries', {
+      headers: { 'X-CSCAPI-KEY': 'TU5EZnkyT05kZmJzT0lXTlN1cXJlYlg1Um1KQWlaOGFPUGdWc2NIdQ==' }
+    });
+    return response.json();
+  },
+    // Get states by country
+  async getStates(countryCode) {
+    const response = await fetch(`https://api.countrystatecity.in/v1/countries/${countryCode}/states`, {
+      headers: { 'X-CSCAPI-KEY': 'TU5EZnkyT05kZmJzT0lXTlN1cXJlYlg1Um1KQWlaOGFPUGdWc2NIdQ==' }
+    });
+    return response.json();
+  },
 
   // Update employee
   async updateEmployee(employeeId, employeeData) {
