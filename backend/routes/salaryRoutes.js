@@ -386,6 +386,8 @@ router.post('/:id/generate-payslip', authenticateToken, requireRole('admin'), as
         message: `Payslip already generated for ${salary.month} ${salary.year}` 
       });
     }
+    // 🔄 CALCULATE UPDATED REMAINING LEAVES FOR PAYSLIP
+    const updatedRemainingLeaves = Math.max(0, (salary.remainingLeaves || 0) - (salary.leaveTaken || 0));
 
     // Create payslip record
     const payslipData = {
@@ -404,7 +406,7 @@ router.post('/:id/generate-payslip', authenticateToken, requireRole('admin'), as
       netPay: salary.netPay,
       paidDays: salary.paidDays,
       lopDays: salary.lopDays,
-      remainingLeaves: salary.remainingLeaves,
+      remainingLeaves: updatedRemainingLeaves,
       leaveTaken: salary.leaveTaken,
       earnings: salary.earnings,
       deductions: salary.deductions
@@ -423,7 +425,12 @@ router.post('/:id/generate-payslip', authenticateToken, requireRole('admin'), as
     res.json({
       message: 'Payslip generated and sent successfully',
       payslip,
-      emailSent: emailResult.success
+      emailSent: emailResult.success,
+       leavesCalculation: {
+        startingRemaining: salary.remainingLeaves,
+        leavesTaken: salary.leaveTaken,
+        updatedRemaining: updatedRemainingLeaves
+      }
     });
   } catch (error) {
     console.error('Error generating payslip:', error);

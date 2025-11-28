@@ -14,7 +14,7 @@ const CustomerManagment = () => {
   const [activeTab, setActiveTab] = useState('active');
   const [phoneError, setPhoneError] = useState('');
   const [paymentTermsError, setPaymentTermsError] = useState('');
- const [emailError, setEmailError] = useState(''); // NEW: Email validation error state
+  const [emailError, setEmailError] = useState(''); // NEW: Email validation error state
   const [checkingEmail, setCheckingEmail] = useState(false); // NEW: Loading state for email check
   // Form state with proper default values
   const [form, setForm] = useState({
@@ -227,7 +227,7 @@ const CustomerManagment = () => {
         setLoading(false);
         return;
       }
- // Check if email already exists (final check before submission)
+      // Check if email already exists (final check before submission)
       const emailExists = await checkEmailExists(form.email);
       if (emailExists) {
         setLoading(false);
@@ -364,31 +364,24 @@ const CustomerManagment = () => {
   );
 
   const activeCustomers = customers.filter(c => c.status === 'active' || !c.status).length;
-  const inactiveCustomers = customers.filter(c => c.status === 'inactive').length;
-  const corporateCustomers = customers.filter(c => c.customerType === 'corporate').length;
+  // Add these calculations right after your state declarations
+  const activeIndividualCustomers = customers.filter(customer => 
+    (customer.status === 'active' || !customer.status) && 
+    customer.customerType === 'individual'
+  ).length;
+
+  const activeCorporateCustomers = customers.filter(customer => 
+    (customer.status === 'active' || !customer.status) && 
+    customer.customerType === 'corporate'
+  ).length;
 
   return (
     <div className="customer-management-container">
       {/* Stats Cards */}
       <div className="customer-stats-grid">
-        <div className="customer-stat-card">
+        <div className="customer-stat-card total-customers">
           <div className="stat-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-          </svg>
-          </div>
-          <div className="stat-content">
-            <h3>Total Customers</h3>
-            <span className="stat-number">{customers.length}</span>
-          </div>
-        </div>
-       
-        <div className="customer-stat-card">
-          <div className="stat-icon">
-             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
             <polyline points="22 4 12 14.01 9 11.01"></polyline>
           </svg>
@@ -399,13 +392,30 @@ const CustomerManagment = () => {
           </div>
         </div>
        
-        <div className="customer-stat-card">
+        <div className="customer-stat-card active-individual">
           <div className="stat-icon">
-            <svg fill="#000000" width="800px" height="800px" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M604.16 788.48H419.84V947.2c0 14.138-11.462 25.6-25.6 25.6s-25.6-11.462-25.6-25.6V762.88c0-14.138 11.462-25.6 25.6-25.6h235.52c14.138 0 25.6 11.462 25.6 25.6V947.2c0 14.138-11.462 25.6-25.6 25.6s-25.6-11.462-25.6-25.6V788.48zm385.033 130.041c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-80.475c-14.138 0-25.6-11.462-25.6-25.6V347.279a5.12 5.12 0 00-5.12-5.12H530.98c-25.449 0-46.08-20.631-46.08-46.08V123.205a5.12 5.12 0 00-5.12-5.12H141.694a5.12 5.12 0 00-5.12 5.12V946.48c0 14.138-11.462 25.6-25.6 25.6H27.521c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6h57.853V123.205c0-31.105 25.215-56.32 56.32-56.32H479.78c31.105 0 56.32 25.215 56.32 56.32v167.754h341.898c31.105 0 56.32 25.215 56.32 56.32v571.242h54.875zM220.16 174.08h184.32c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h184.32c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h583.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h583.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h583.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm512 0h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm-512 122.88h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm512 0h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6z"/></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
           </div>
           <div className="stat-content">
-            <h3>Corporate Clients</h3>
-            <span className="stat-number">{corporateCustomers}</span>
+            <h3>Active Individual Customers</h3>
+            <span className="stat-number">{activeIndividualCustomers}</span>
+          </div>
+        </div>
+       
+        <div className="customer-stat-card active-corporate">
+          <div className="stat-icon">
+            <svg fill="#000000" width="800px" height="800px" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+         <path d="M604.16 788.48H419.84V947.2c0 14.138-11.462 25.6-25.6 25.6s-25.6-11.462-25.6-25.6V762.88c0-14.138 11.462-25.6 25.6-25.6h235.52c14.138 0 25.6 11.462 25.6 25.6V947.2c0 14.138-11.462 25.6-25.6 25.6s-25.6-11.462-25.6-25.6V788.48zm385.033 130.041c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-80.475c-14.138 0-25.6-11.462-25.6-25.6V347.279a5.12 5.12 0 00-5.12-5.12H530.98c-25.449 0-46.08-20.631-46.08-46.08V123.205a5.12 5.12 0 00-5.12-5.12H141.694a5.12 5.12 0 00-5.12 5.12V946.48c0 14.138-11.462 25.6-25.6 25.6H27.521c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6h57.853V123.205c0-31.105 25.215-56.32 56.32-56.32H479.78c31.105 0 56.32 25.215 56.32 56.32v167.754h341.898c31.105 0 56.32 25.215 56.32 56.32v571.242h54.875zM220.16 174.08h184.32c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h184.32c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h583.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h583.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h583.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6H220.16c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm0 112.64h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm512 0h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm-512 122.88h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6zm512 0h71.68c14.138 0 25.6 11.462 25.6 25.6s-11.462 25.6-25.6 25.6h-71.68c-14.138 0-25.6-11.462-25.6-25.6s11.462-25.6 25.6-25.6z"/>
+          </svg>
+          </div>
+          <div className="stat-content">
+            <h3>Active Corporate Clients</h3>
+            <span className="stat-number">{activeCorporateCustomers}</span>
           </div>
         </div>
       </div>

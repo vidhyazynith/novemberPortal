@@ -2707,3 +2707,14 @@
 .p-4 {
   padding: 1.5rem;
 }
+.highlight {
+  color: #10b981;
+  font-weight: bold;
+  background-color: #ecfdf5;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.calculated-item .highlight {
+  font-size: 1.1em;
+}

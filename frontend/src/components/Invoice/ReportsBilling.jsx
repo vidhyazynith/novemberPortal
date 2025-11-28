@@ -12,6 +12,7 @@ import {
   getDefaultDates
 } from '../../services/invoice';
 import './ReportsBilling.css';
+import { customerService } from '../../services/customer';
 
 // Add this custom hook for localStorage persistence (AT THE TOP LEVEL)
 const usePersistedSentEmails = () => {
@@ -67,15 +68,16 @@ const ReportsBilling = () => {
   const [activeTab, setActiveTab] = useState('active');
 
   // Add these new states near your existing useState declarations
-const [searchTerm, setSearchTerm] = useState('');
-const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'thisWeek', 'thisMonth', 'custom'
-const [customStartDate, setCustomStartDate] = useState('');
-const [customEndDate, setCustomEndDate] = useState('');
-const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'paid', 'unpaid', 'overdue'
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'thisWeek', 'thisMonth', 'custom'
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'paid', 'unpaid', 'overdue'
   // New states for Profit & Loss report
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
+  const [activeCustomers, setActiveCustomers] = useState([]);
 
   // NEW: Dedicated function for due date calculation
   const calculateDueDate = (invoiceDate, paymentTerms) => {
@@ -119,9 +121,8 @@ const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'paid', 'unpa
     return invoice.status;
   };
 
-
   // Reset filters function
-const resetFilters = () => {
+  const resetFilters = () => {
   setSearchTerm('');
   setDateFilter('all');
   setStatusFilter('all');
@@ -215,8 +216,14 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
     }
    
     // Find the selected customer to get payment terms
-    const selectedCustomerData = customers.find(customer => customer._id === customerId);
+    const selectedCustomerData = activeCustomers.find(customer => customer._id === customerId);
    
+    if (!selectedCustomerData) {
+    alert('Selected customer not found or inactive');
+    setSelectedCustomer('');
+    return;
+    }
+
     if (selectedCustomerData && selectedCustomerData.paymentTerms && invoiceDate) {
       // Auto-calculate due date based on payment terms
       const calculatedDueDate = calculateDueDate(invoiceDate, selectedCustomerData.paymentTerms);
@@ -279,8 +286,9 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const customersData = await billingService.getCustomers();
-        setCustomers(customersData);
+
+        const activeCustomersData = await customerService.getActiveCustomers();
+        setActiveCustomers(activeCustomersData.customers || []);
 
         const invoicesData = await billingService.getInvoices();
         setInvoices(invoicesData.filter(invoice => !invoice.isDisabled));
@@ -1379,22 +1387,26 @@ const updateLocalInvoiceState = (invoiceId) => {
                
                 <div className="form-section">
                   {/* ENHANCED: Customer selection with payment terms */}
-                  <div className="form-field">
+                 <div className="form-field">
                     <label className="required">Select Customer</label>
                     <select
                       className="form-select"
                       value={selectedCustomer}
                       onChange={(e) => handleCustomerChange(e.target.value)}
                       required
+                      disabled={loading}
                     >
-                      <option value="">-- Select Customer --</option>
-                      {customers.map(customer => (
+                      <option value="">-- Select Active Customer --</option>
+                      {activeCustomers.map(customer => (
                         <option key={customer._id} value={customer._id}>
-                          {customer.name} {customer.company ? `- ${customer.company}` : ""}
+                          {customer.customerId} - {customer.name}
+                          {customer.company ? ` - ${customer.company}` : ""}
                           {customer.paymentTerms ? ` (${customer.paymentTerms} days)` : ""}
                         </option>
                       ))}
                     </select>
+                    {loading && <small style={{color: '#666', marginTop: '5px'}}>Loading active customers...</small>}
+                    <small className="form-help">Only active customers are shown in this list</small>
                   </div>
                  
                   <div className="form-grid-2 responsive-form-grid">

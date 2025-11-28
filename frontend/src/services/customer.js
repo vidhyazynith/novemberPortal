@@ -30,6 +30,11 @@ export const customerService = {
     const response = await api.patch(`/Customer/customers/${customerId}`, { status });
     return response.data;
   },
+  
+  async getActiveCustomers() {
+    const response = await api.get('/Customer/active-customers');
+    return response.data;
+  }, 
 
   async getCountries() {
     const response = await fetch('https://api.countrystatecity.in/v1/countries', {
@@ -37,7 +42,8 @@ export const customerService = {
     });
     return response.json();
   },
-    // Get states by country
+
+  // Get states by country
   async getStates(countryCode) {
     const response = await fetch(`https://api.countrystatecity.in/v1/countries/${countryCode}/states`, {
       headers: { 'X-CSCAPI-KEY': 'TU5EZnkyT05kZmJzT0lXTlN1cXJlYlg1Um1KQWlaOGFPUGdWc2NIdQ==' }

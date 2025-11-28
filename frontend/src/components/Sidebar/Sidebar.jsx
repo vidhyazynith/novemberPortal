@@ -151,11 +151,11 @@ const LogoutIcon = () => (
                   </span>
                 </button>
                
-                <div className={`dropdown-menu ${salaryOpen ? 'open' : ''}`}>
+                <div className={`dropdown-menus ${salaryOpen ? 'open' : ''}`}>
                   {item.submenu.map(subItem => (
                     <button
                       key={subItem.id}
-                      className={`dropdown-item ${activeSection === subItem.id ? 'active' : ''}`}
+                      className={`dropdown-items ${activeSection === subItem.id ? 'active' : ''}`}
                       onClick={() => handleSubmenuClick(subItem.id)}
                     >
                       <span className="dropdown-icon">{subItem.icon}</span>
@@ -192,11 +192,11 @@ const LogoutIcon = () => (
             </span>
           </button>
          
-          <div className={`dropdown-menu ${settingsOpen ? 'open' : ''}`}>
+          <div className={`dropdown-menus ${settingsOpen ? 'open' : ''}`}>
             {settingsItems.map(item => (
               <button
                 key={item.id}
-                className={`dropdown-item ${activeSection === item.id ? 'active' : ''}`}
+                className={`dropdown-items ${activeSection === item.id ? 'active' : ''}`}
                 onClick={() => handleSubmenuClick(item.id)}
               >
                 <span className="dropdown-icon">{item.icon}</span>

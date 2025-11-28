@@ -295,9 +295,9 @@ const [showAllHikes, setShowAllHikes] = useState(false); // To toggle between la
       }));
 
       // Also update the local salary status to 'draft'
-      setActiveSalaries(prev => 
-        prev.map(salary => 
-          salary._id === salaryRecord._id 
+      setActiveSalaries(prev =>
+        prev.map(salary =>
+          salary._id === salaryRecord._id
             ? { ...salary, status: 'draft' }
             : salary
         )
@@ -390,11 +390,11 @@ const handleEmployeeSelect = async (employeeId) => {
 // const handleFilterChange = useCallback((newFilters) => {
 //   setHikeFilters(prev => {
 //     const updatedFilters = { ...prev, ...newFilters };
-    
+   
 //     // Determine view mode based on filters
 //     const hasFilters = updatedFilters.month || updatedFilters.year;
 //     setViewMode(hasFilters ? 'all' : 'latest');
-    
+   
 //     return updatedFilters;
 //   });
 // }, []);
@@ -462,18 +462,18 @@ const handleEmployeeSelect = async (employeeId) => {
 // const debouncedLoadHikeHistory = useRef(
 //   debounce(async (employeeId, filters, mode) => {
 //     if (!employeeId) return;
-    
+   
 //     setHikeHistoryLoading(true);
 //     try {
 //       const apiFilters = { ...filters };
-      
+     
 //       if (mode === 'latest') {
 //         apiFilters.latest = true;
 //       }
 //       // If mode is 'all' but no specific filters, we don't add latest flag
-      
+     
 //       console.log('Loading hike history with filters:', apiFilters);
-      
+     
 //       const data = await salaryService.getHikeHistory(selectedSalaryDetail.employeeId, apiFilters);
 //       setHikeHistory(data.hikeHistory || []);
 //     } catch (error) {
@@ -488,11 +488,11 @@ const handleEmployeeSelect = async (employeeId) => {
  
   const loadHikeHistory = async (employeeId, showLatest = true) => {
   if (!employeeId) return;
-  
+ 
   setHikeHistoryLoading(true);
   try {
     const filters = {};
-    
+   
     if (showLatest && !hikeFilterMonth && !hikeFilterYear) {
       // Show only the latest hike when no filters are applied
       filters.latest = true;
@@ -506,7 +506,7 @@ const handleEmployeeSelect = async (employeeId) => {
       // Show all hikes when explicitly requested
       setShowAllHikes(true);
     }
-    
+   
     const data = await salaryService.getHikeHistory(employeeId, filters);
     setHikeHistory(data.hikeHistory || []);
   } catch (error) {
@@ -520,15 +520,15 @@ const handleEmployeeSelect = async (employeeId) => {
 // // Load hike history with current filters and view mode
 // const loadHikeHistory = useCallback((forceLatest = false) => {
 //   if (!selectedSalaryDetail?.employeeId) return;
-  
+ 
 //   const currentViewMode = forceLatest ? 'latest' : viewMode;
 //   const currentFilters = forceLatest ? { month: '', year: '' } : hikeFilters;
-  
+ 
 //   if (forceLatest) {
 //     setHikeFilters({ month: '', year: '' });
 //     setViewMode('latest');
 //   }
-  
+ 
 //   debouncedLoadHikeHistory(selectedSalaryDetail.employeeId, currentFilters, currentViewMode);
 // }, [selectedSalaryDetail?.employeeId, hikeFilters, viewMode, debouncedLoadHikeHistory]);
 
@@ -672,12 +672,12 @@ const handleEmployeeSelect = async (employeeId) => {
 
     if (editingSalary) {
       await salaryService.updateSalary(editingSalary._id, submitData);
-      
+     
       let message = 'Salary record updated successfully!';
       if (editingSalary.status === 'paid') {
         message = 'Salary record updated! Status reset to DRAFT since you edited a paid record.';
       }
-      
+     
       alert(message);
     } else {
       await salaryService.createSalary(submitData);
@@ -766,22 +766,22 @@ const handleEditSalary = async (salary) => {
   if (window.confirm('Are you sure you want to delete this payslip?')) {
     try {
       const payslipToDelete = selectedEmployeePayslips.find(p => p._id === payslipId);
-      
+     
       if (payslipToDelete) {
         const response = await salaryService.deletePayslip(payslipId);
-        
+       
         // Refresh the active salaries to get updated status
         await loadActiveSalaries();
-        
+       
         await updatePayslipStatusAfterDelete(
           selectedEmployeeId,
           payslipToDelete.month,
           payslipToDelete.year
         );
-        
+       
         const data = await salaryService.getEmployeePayslips(selectedEmployeeId);
         setSelectedEmployeePayslips(data.payslips);
-        
+       
         alert('Payslip deleted successfully! Salary status reset to DRAFT.');
       }
     } catch (error) {
@@ -798,16 +798,16 @@ const handleEditSalary = async (salary) => {
   }
   try {
     await salaryService.generatePayslip(salaryId);
-    
+   
     // Update the status to "paid" using existing update route
     await salaryService.updateSalary(salaryId, { status: 'paid' });
-    
+   
     alert('Payslip generated and sent to employee email! Status updated to PAID.');
 
     // Update local state
-    setActiveSalaries(prev => 
-      prev.map(s => 
-        s._id === salaryId 
+    setActiveSalaries(prev =>
+      prev.map(s =>
+        s._id === salaryId
           ? { ...s, status: 'paid' }
           : s
       )
@@ -952,7 +952,7 @@ const handleEditSalary = async (salary) => {
             Disabled Records
           </button>
         </div>
-        </div> 
+        </div>
         {loading ? (
           <div className="table-loading">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -1203,13 +1203,19 @@ const handleEditSalary = async (salary) => {
                       <span className="detail-value">{selectedSalaryDetail.lopDays}</span>
                     </div>
                     <div className="detail-item">
+      <span className="detail-label">Starting Remaining Leaves:</span>
+      <span className="detail-value">{selectedSalaryDetail.remainingLeaves}</span>
+    </div>
+                    <div className="detail-item">
                       <span className="detail-label">Leave Taken:</span>
                       <span className="detail-value">{selectedSalaryDetail.leaveTaken}</span>
                     </div>
-                    <div className="detail-item">
-                      <span className="detail-label">Remaining Leaves:</span>
-                      <span className="detail-value">{selectedSalaryDetail.remainingLeaves}</span>
-                    </div>
+                     <div className="detail-item">
+      <span className="detail-label">Updated Remaining Leaves:</span>
+      <span className="detail-value highlight">
+        {Math.max(0, (selectedSalaryDetail.remainingLeaves || 0) - (selectedSalaryDetail.leaveTaken || 0))}
+      </span>
+    </div>
                   </div>
                 </div>
 {/* Hike History Section */}
@@ -1220,7 +1226,7 @@ const handleEditSalary = async (salary) => {
     </h4>
     <div className="hike-controls">
       <div className="hike-filter-controls">
-        <select 
+        <select
           className="filter-select"
           value={hikeFilterMonth}
           onChange={(e) => {
@@ -1235,7 +1241,7 @@ const handleEditSalary = async (salary) => {
             <option key={month} value={month}>{month}</option>
           ))}
         </select>
-        <select 
+        <select
           className="filter-select"
           value={hikeFilterYear}
           onChange={(e) => {
@@ -1253,7 +1259,7 @@ const handleEditSalary = async (salary) => {
           }
         </select>
         {(hikeFilterMonth || hikeFilterYear) && (
-          <button 
+          <button
             className="clear-filters-btn"
             onClick={() => {
               setHikeFilterMonth('');
@@ -1265,9 +1271,9 @@ const handleEditSalary = async (salary) => {
           </button>
         )}
       </div>
-      
+     
       {!showAllHikes && hikeHistory.length > 0 && (
-        <button 
+        <button
           className="view-all-hikes-btn"
           onClick={() => {
             setShowAllHikes(true);
@@ -1277,9 +1283,9 @@ const handleEditSalary = async (salary) => {
           View All Hikes
         </button>
       )}
-      
+     
       {showAllHikes && (
-        <button 
+        <button
           className="view-latest-btn"
           onClick={() => {
             setShowAllHikes(false);
@@ -1293,7 +1299,7 @@ const handleEditSalary = async (salary) => {
       )}
     </div>
   </div>
-  
+ 
   {hikeHistoryLoading ? (
     <div className="loading-state">
       <div className="loading-spinner"></div>
@@ -1309,12 +1315,12 @@ const handleEditSalary = async (salary) => {
        */}
       {(showAllHikes || hikeFilterMonth || hikeFilterYear) && hikeHistory.length > 0 && (
         <div className="hike-results-info">
-          Found {hikeHistory.length} hike{hikeHistory.length !== 1 ? 's' : ''} 
+          Found {hikeHistory.length} hike{hikeHistory.length !== 1 ? 's' : ''}
           {hikeFilterMonth && ` in ${hikeFilterMonth}`}
           {hikeFilterYear && ` ${hikeFilterYear}`}
         </div>
       )}
-      
+     
       <div className="hike-history-table">
         <table className="history-table">
           <thead>
@@ -1575,7 +1581,7 @@ const handleEditSalary = async (salary) => {
                           step="0.01"
                         />
                       </div>
-                    <div className="form-group">
+                   <div className="form-group">
   <label className="form-label">Remaining Leaves</label>
   <input
     type="number"
@@ -1584,18 +1590,33 @@ const handleEditSalary = async (salary) => {
     value={formData.remainingLeaves}
     onChange={handleInputChange}
     min="0"
-    readOnly={!!editingSalary} // Read-only only when editing
-    disabled={!!editingSalary} // Disabled only when editing
-    style={editingSalary ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
+    readOnly={!editingSalary}
+    disabled={!editingSalary}
+    style={!editingSalary ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
   />
   <small className="form-help">
-    {editingSalary
-      ? 'Automatically calculated when changing months'
-      : 'Enter remaining leaves for this month'
+    {!editingSalary
+      ? 'Automatically carried from previous month. In payslip, this will be updated to: (Current Remaining - Leaves Taken)'
+      : 'Starting remaining leaves for this month'
     }
   </small>
 </div>
-                      <div className="form-group">
+
+<div className="form-group">
+  <label className="form-label">Leave Taken</label>
+  <input
+    type="number"
+    className="form-input"
+    name="leaveTaken"
+    value={formData.leaveTaken}
+    onChange={handleInputChange}
+    min="0"
+  />
+  <small className="form-help">
+    Enter leaves taken this month. In payslip, remaining leaves will show as: {formData.remainingLeaves} - {formData.leaveTaken} = {Math.max(0, (formData.remainingLeaves || 0) - (formData.leaveTaken || 0))}
+  </small>
+</div>
+                      {/* <div className="form-group">
                         <label className="form-label">Leave Taken</label>
                         <input
                           type="number"
@@ -1606,33 +1627,40 @@ const handleEditSalary = async (salary) => {
                           min="0"
                         />
                         <small className="form-help">Enter leaves taken this month</small>
-                      </div>
+                      </div> */}
                     </div>
  
-                    {/* Calculated Values Display */}
-                    <div className="calculated-values-section">
-                      <h5 className="calculated-title">Automatically Calculated Values</h5>
-                      <div className="calculated-grid">
-                        <div className="calculated-item">
-                          <span className="calculated-label">LOP Days:</span>
-                          <span className="calculated-value">{calculatedValues.lopDays}</span>
-                        </div>
-                        <div className="calculated-item">
-                          <span className="calculated-label">Final Paid Days:</span>
-                          <span className="calculated-value">{calculatedValues.finalPaidDays}</span>
-                        </div>
-                        <div className="calculated-item">
-                          <span className="calculated-label">Basic Pay (Adjusted):</span>
-                          <span className="calculated-value currency">Rs.{calculatedValues.basicPay.toFixed(2)}</span>
-                        </div>
-                        {calculatedValues.lopDays > 0 && (
-                          <div className="calculated-note">
-                            <p><strong>Calculation:</strong> Basic Pay = (Rs.{formData.basicSalary || '0'} / 30) * {calculatedValues.finalPaidDays} = Rs.{calculatedValues.basicPay.toFixed(2)}</p>
-                            <p><strong>Note:</strong> {calculatedValues.lopDays} LOP day(s) detected. Basic pay has been adjusted based on {calculatedValues.finalPaidDays} paid days.</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                   // Add this to the calculated values section in the salary form:
+<div className="calculated-values-section">
+  <h5 className="calculated-title">Automatically Calculated Values</h5>
+  <div className="calculated-grid">
+    <div className="calculated-item">
+      <span className="calculated-label">LOP Days:</span>
+      <span className="calculated-value">{calculatedValues.lopDays}</span>
+    </div>
+    <div className="calculated-item">
+      <span className="calculated-label">Final Paid Days:</span>
+      <span className="calculated-value">{calculatedValues.finalPaidDays}</span>
+    </div>
+    <div className="calculated-item">
+      <span className="calculated-label">Basic Pay (Adjusted):</span>
+      <span className="calculated-value currency">Rs.{calculatedValues.basicPay.toFixed(2)}</span>
+    </div>
+    {/* 🆕 ADD LEAVES CALCULATION DISPLAY */}
+    <div className="calculated-item">
+      <span className="calculated-label">Remaining Leaves for Next Month:</span>
+      <span className="calculated-value highlight">
+        {Math.max(0, (formData.remainingLeaves || 0) - (formData.leaveTaken || 0))}
+      </span>
+    </div>
+    {calculatedValues.lopDays > 0 && (
+      <div className="calculated-note">
+        <p><strong>Calculation:</strong> Basic Pay = (Rs.{formData.basicSalary || '0'} / 30) * {calculatedValues.finalPaidDays} = Rs.{calculatedValues.basicPay.toFixed(2)}</p>
+        <p><strong>Note:</strong> {calculatedValues.lopDays} LOP day(s) detected. Basic pay has been adjusted based on {calculatedValues.finalPaidDays} paid days.</p>
+      </div>
+    )}
+  </div>
+</div>
                   </div>
  
                   {/* Additional Earnings */}
@@ -1819,7 +1847,7 @@ const handleEditSalary = async (salary) => {
           <div className="filter-controls">
             <div className="filter-group">
               <label className="filter-label">Month</label>
-              <select 
+              <select
                 className="filter-select"
                 value={selectedFilterMonth}
                 onChange={(e) => setSelectedFilterMonth(e.target.value)}
@@ -1832,7 +1860,7 @@ const handleEditSalary = async (salary) => {
             </div>
             <div className="filter-group">
               <label className="filter-label">Year</label>
-              <select 
+              <select
                 className="filter-select"
                 value={selectedFilterYear}
                 onChange={(e) => setSelectedFilterYear(e.target.value)}
@@ -1845,7 +1873,7 @@ const handleEditSalary = async (salary) => {
                 }
               </select>
             </div>
-            <button 
+            <button
               className="clear-filters-btn"
               onClick={() => {
                 setSelectedFilterMonth('');
@@ -1870,7 +1898,7 @@ const handleEditSalary = async (salary) => {
 
             // Find current month payslip or latest available payslip
             let displayPayslip = null;
-            
+           
             if (selectedFilterMonth || selectedFilterYear) {
               // If filters are applied, show the most recent payslip from filtered results
               displayPayslip = filteredPayslips.sort((a, b) => {
@@ -1880,10 +1908,10 @@ const handleEditSalary = async (salary) => {
               })[0];
             } else {
               // No filters - try current month first, then previous month
-              displayPayslip = selectedEmployeePayslips.find(payslip => 
+              displayPayslip = selectedEmployeePayslips.find(payslip =>
                 payslip.month === currentMonth && payslip.year === currentYear
               );
-              
+             
               if (!displayPayslip) {
                 // If no current month payslip, find the latest available payslip
                 displayPayslip = selectedEmployeePayslips.sort((a, b) => {
@@ -1893,7 +1921,7 @@ const handleEditSalary = async (salary) => {
                 })[0];
               }
             }
-            
+           
             return displayPayslip ? (
               <div className="current-payslip-card">
                 <div className="payslip-header">
@@ -1915,12 +1943,12 @@ const handleEditSalary = async (salary) => {
                           onClick={() => setIsAmountVisible(!isAmountVisible)}
                           type="button"
                         >
-                          <svg 
-                            width="18" 
-                            height="18" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
                             strokeWidth="2"
                           >
                             {isAmountVisible ? (
@@ -1981,5 +2009,3 @@ const handleEditSalary = async (salary) => {
 };
  
 export default SalaryManagement;
- 
- 

@@ -5,7 +5,8 @@ import {
   getCustomerById,
   updateCustomer,
   deleteCustomer,
-  updateCustomerStatus, // Add this import
+  updateCustomerStatus,
+  getActiveCustomers
 } from "../Controllers/CustomerController.js";
 import { authenticateToken, requireRole } from '../middleware/auth.js';
  
@@ -18,5 +19,6 @@ router.post("/add-customer",authenticateToken, requireRole('admin'), addCustomer
 router.put("/customers/:id", authenticateToken, requireRole('admin'),updateCustomer);
 router.delete("/customers/:id", authenticateToken, requireRole('admin'),deleteCustomer);
 router.patch("/customers/:id", authenticateToken, requireRole('admin'),updateCustomerStatus);
- 
+router.get("/active-customers", authenticateToken, getActiveCustomers);
+
 export default router;

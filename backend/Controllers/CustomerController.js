@@ -85,6 +85,27 @@ export const getCustomers = async (req, res) => {
   }
 };
  
+// 🆕 Get all active customers for invoice dropdown
+export const getActiveCustomers = async (req, res) => {
+  try {
+    const customers = await Customer.find({
+      status: 'active'  // Only fetch active customers
+    }).select('customerId name email phone companyName customerType paymentTerms');
+   
+    res.json({
+      success: true,
+      customers
+    });
+  } catch (error) {
+    console.error("Error fetching active customers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching active customers",
+      error: error.message
+    });
+  }
+};
+
 // Get customer by ID
 export const getCustomerById = async (req, res) => {
   try {

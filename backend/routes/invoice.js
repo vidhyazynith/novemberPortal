@@ -15,7 +15,7 @@ import {
   disableInvoice, // ADD THIS IMPORT
   restoreInvoice, // ADD THIS IMPORT
   permanentDeleteInvoice,// ADD THIS IMPORT
-getInvoiceDownloadUrl
+  getInvoiceDownloadUrl
 } from "../Controllers/invoiceController.js";
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 
