@@ -331,7 +331,6 @@ const handleEmployeeSelect = async (employeeId) => {
       if (!editingSalary) {
         setFormData(prev => ({
           ...prev,
-          remainingLeaves: 0, // Start with 0 or let user enter
           leaveTaken: 0
         }));
       }
@@ -1099,168 +1098,168 @@ const handleEditSalary = async (salary) => {
                       <span className="detail-value">{selectedSalaryDetail.lopDays}</span>
                     </div>
                     <div className="detail-item">
-      <span className="detail-label">Starting Remaining Leaves:</span>
-      <span className="detail-value">{selectedSalaryDetail.remainingLeaves}</span>
-    </div>
+                      <span className="detail-label">Starting Remaining Leaves:</span>
+                      <span className="detail-value">{selectedSalaryDetail.remainingLeaves}</span>
+                    </div>
                     <div className="detail-item">
                       <span className="detail-label">Leave Taken:</span>
                       <span className="detail-value">{selectedSalaryDetail.leaveTaken}</span>
                     </div>
                      <div className="detail-item">
-      <span className="detail-label">Updated Remaining Leaves:</span>
-      <span className="detail-value highlight">
-        {Math.max(0, (selectedSalaryDetail.remainingLeaves || 0) - (selectedSalaryDetail.leaveTaken || 0))}
-      </span>
-    </div>
+                      <span className="detail-label">Updated Remaining Leaves:</span>
+                      <span className="detail-value highlight">
+                        {Math.max(0, (selectedSalaryDetail.remainingLeaves || 0) - (selectedSalaryDetail.leaveTaken || 0))}
+                      </span>
+                    </div>
                   </div>
                 </div>
-{/* Hike History Section */}
-<div className="detail-section">
-  <div className="section-header">
-    <h4 className="section-title">
-      {showAllHikes ? 'Hike History' : 'Latest Hike'}
-    </h4>
-    <div className="hike-controls">
-      <div className="hike-filter-controls">
-        <select
-          className="filter-select"
-          value={hikeFilterMonth}
-          onChange={(e) => {
-            setHikeFilterMonth(e.target.value);
-            if (e.target.value || hikeFilterYear) {
-              loadHikeHistory(selectedSalaryDetail.employeeId, false);
-            }
-          }}
-        >
-          <option value="">Select Month</option>
-          {months.map(month => (
-            <option key={month} value={month}>{month}</option>
-          ))}
-        </select>
-        <select
-          className="filter-select"
-          value={hikeFilterYear}
-          onChange={(e) => {
-            setHikeFilterYear(e.target.value);
-            if (e.target.value || hikeFilterMonth) {
-              loadHikeHistory(selectedSalaryDetail.employeeId, false);
-            }
-          }}
-        >
-          <option value="">Select Year</option>
-          {Array.from({length: currentYear - 2020 + 1}, (_, i) => currentYear - i)
-            .map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))
-          }
-        </select>
-        {(hikeFilterMonth || hikeFilterYear) && (
-          <button
-            className="clear-filters-btn"
-            onClick={() => {
-              setHikeFilterMonth('');
-              setHikeFilterYear('');
-              loadHikeHistory(selectedSalaryDetail.employeeId, true);
-            }}
-          >
-            Clear Filters
-          </button>
-        )}
-      </div>
-     
-      {!showAllHikes && hikeHistory.length > 0 && (
-        <button
-          className="view-all-hikes-btn"
-          onClick={() => {
-            setShowAllHikes(true);
-            loadHikeHistory(selectedSalaryDetail.employeeId, false);
-          }}
-        >
-          View All Hikes
-        </button>
-      )}
-     
-      {showAllHikes && (
-        <button
-          className="view-latest-btn"
-          onClick={() => {
-            setShowAllHikes(false);
-            setHikeFilterMonth('');
-            setHikeFilterYear('');
-            loadHikeHistory(selectedSalaryDetail.employeeId, true);
-          }}
-        >
-          Show Latest Only
-        </button>
-      )}
-    </div>
-  </div>
- 
-  {hikeHistoryLoading ? (
-    <div className="loading-state">
-      <div className="loading-spinner"></div>
-      Loading hike history...
-    </div>
-  ) : hikeHistory.length > 0 ? (
-    <div className="hike-history-container">
-      {(showAllHikes || hikeFilterMonth || hikeFilterYear) && hikeHistory.length > 0 && (
-        <div className="hike-results-info">
-          Found {hikeHistory.length} hike{hikeHistory.length !== 1 ? 's' : ''}
-          {hikeFilterMonth && ` in ${hikeFilterMonth}`}
-          {hikeFilterYear && ` ${hikeFilterYear}`}
-        </div>
-      )}
-     
-      <div className="hike-history-table">
-        <table className="history-table">
-          <thead>
-            <tr>
-              <th>Month/Year</th>
-              <th>Hike %</th>
-              <th>Start Date</th>
-              <th>Previous Basic</th>
-              <th>New Basic</th>
-              <th>Hike Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {hikeHistory.map((hike, index) => (
-              <tr key={hike._id || index} className={`hike-history-row ${index === 0 && !showAllHikes ? 'latest-hike' : ''}`}>
-                <td>
-                  <div className="hike-period">
-                    <span className="hike-month">{hike.month}</span>
-                    <span className="hike-year">{hike.year}</span>
+                {/* Hike History Section */}
+                <div className="detail-section">
+                  <div className="section-header">
+                    <h4 className="section-title">
+                      {showAllHikes ? 'Hike History' : 'Latest Hike'}
+                    </h4>
+                    <div className="hike-controls">
+                      <div className="hike-filter-controls">
+                        <select
+                          className="filter-select"
+                          value={hikeFilterMonth}
+                          onChange={(e) => {
+                            setHikeFilterMonth(e.target.value);
+                            if (e.target.value || hikeFilterYear) {
+                              loadHikeHistory(selectedSalaryDetail.employeeId, false);
+                            }
+                          }}
+                        >
+                        <option value="">Select Month</option>
+                        {months.map(month => (
+                          <option key={month} value={month}>{month}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="filter-select"
+                        value={hikeFilterYear}
+                        onChange={(e) => {
+                          setHikeFilterYear(e.target.value);
+                          if (e.target.value || hikeFilterMonth) {
+                            loadHikeHistory(selectedSalaryDetail.employeeId, false);
+                          }
+                        }}
+                      >
+                        <option value="">Select Year</option>
+                        {Array.from({length: currentYear - 2020 + 1}, (_, i) => currentYear - i)
+                          .map(year => (
+                            <option key={year} value={year}>{year}</option>
+                          ))
+                        }
+                      </select>
+                      {(hikeFilterMonth || hikeFilterYear) && (
+                        <button
+                          className="clear-filters-btn"
+                          onClick={() => {
+                            setHikeFilterMonth('');
+                            setHikeFilterYear('');
+                            loadHikeHistory(selectedSalaryDetail.employeeId, true);
+                          }}
+                        >
+                          Clear Filters
+                        </button>
+                      )}
+                    </div>
+                  
+                    {!showAllHikes && hikeHistory.length > 0 && (
+                      <button
+                        className="view-all-hikes-btn"
+                        onClick={() => {
+                          setShowAllHikes(true);
+                          loadHikeHistory(selectedSalaryDetail.employeeId, false);
+                        }}
+                      >
+                        View All Hikes
+                      </button>
+                    )}
+                  
+                    {showAllHikes && (
+                      <button
+                        className="view-latest-btn"
+                        onClick={() => {
+                          setShowAllHikes(false);
+                          setHikeFilterMonth('');
+                          setHikeFilterYear('');
+                          loadHikeHistory(selectedSalaryDetail.employeeId, true);
+                        }}
+                      >
+                        Show Latest Only
+                      </button>
+                    )}
                   </div>
-                </td>
-                <td>
-                  <span className="hike-percentage-badge">
-                    {hike.hikePercentage}%
-                  </span>
-                </td>
-                <td>
-                  {new Date(hike.hikeStartDate).toLocaleDateString()}
-                </td>
-                <td className="currency">Rs.{hike.previousBasicSalary?.toFixed(2)}</td>
-                <td className="currency">Rs.{hike.newBasicSalary?.toFixed(2)}</td>
-                <td className="currency hike-amount">
-                  +Rs.{hike.hikeAmount?.toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  ) : (
-    <div className="no-hike-history">
-      {hikeFilterMonth || hikeFilterYear ? (
-        <p>No hikes found for the selected filters.</p>
-      ) : (
-        <p>No hike history available for this employee.</p>
-      )}
-    </div>
-  )}
-</div>
+                </div>
+              
+                {hikeHistoryLoading ? (
+                  <div className="loading-state">
+                    <div className="loading-spinner"></div>
+                    Loading hike history...
+                  </div>
+                ) : hikeHistory.length > 0 ? (
+                  <div className="hike-history-container">
+                    {(showAllHikes || hikeFilterMonth || hikeFilterYear) && hikeHistory.length > 0 && (
+                      <div className="hike-results-info">
+                        Found {hikeHistory.length} hike{hikeHistory.length !== 1 ? 's' : ''}
+                        {hikeFilterMonth && ` in ${hikeFilterMonth}`}
+                        {hikeFilterYear && ` ${hikeFilterYear}`}
+                      </div>
+                    )}
+                  
+                    <div className="hike-history-table">
+                      <table className="history-table">
+                        <thead>
+                          <tr>
+                            <th>Month/Year</th>
+                            <th>Hike %</th>
+                            <th>Start Date</th>
+                            <th>Previous Basic</th>
+                            <th>New Basic</th>
+                            <th>Hike Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hikeHistory.map((hike, index) => (
+                            <tr key={hike._id || index} className={`hike-history-row ${index === 0 && !showAllHikes ? 'latest-hike' : ''}`}>
+                              <td>
+                                <div className="hike-period">
+                                  <span className="hike-month">{hike.month}</span>
+                                  <span className="hike-year">{hike.year}</span>
+                                </div>
+                              </td>
+                              <td>
+                                <span className="hike-percentage-badge">
+                                  {hike.hikePercentage}%
+                                </span>
+                              </td>
+                              <td>
+                                {new Date(hike.hikeStartDate).toLocaleDateString()}
+                              </td>
+                              <td className="currency">Rs.{hike.previousBasicSalary?.toFixed(2)}</td>
+                              <td className="currency">Rs.{hike.newBasicSalary?.toFixed(2)}</td>
+                              <td className="currency hike-amount">
+                                +Rs.{hike.hikeAmount?.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="no-hike-history">
+                    {hikeFilterMonth || hikeFilterYear ? (
+                      <p>No hikes found for the selected filters.</p>
+                    ) : (
+                      <p>No hike history available for this employee.</p>
+                    )}
+                  </div>
+                )}
+              </div>
                 {/* Action Buttons */}
                 <div className="detail-actions">
                   {selectedSalaryDetail.activeStatus === 'enabled' && (
@@ -1472,73 +1471,71 @@ const handleEditSalary = async (salary) => {
                         />
                       </div>
                    <div className="form-group">
-  <label className="form-label">Remaining Leaves</label>
-  <input
-    type="number"
-    className="form-input"
-    name="remainingLeaves"
-    value={formData.remainingLeaves}
-    onChange={handleInputChange}
-    min="0"
-    readOnly={!editingSalary}
-    disabled={!editingSalary}
-    style={!editingSalary ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
-  />
-  <small className="form-help">
-    {!editingSalary
-      ? 'Automatically carried from previous month. In payslip, this will be updated to: (Current Remaining - Leaves Taken)'
-      : 'Starting remaining leaves for this month'
-    }
-  </small>
-</div>
+                      <label className="form-label">Remaining Leaves</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        name="remainingLeaves"
+                        value={formData.remainingLeaves}
+                        onChange={handleInputChange}
+                        min="0"
+                        disabled={!!editingSalary}
+                        style={!!editingSalary ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
+                      />
+                      <small className="form-help">
+                        {!editingSalary
+                          ? 'Automatically carried from previous month. In payslip, this will be updated to: (Current Remaining - Leaves Taken)'
+                          : 'Starting remaining leaves for this month'
+                        }
+                      </small>
+                    </div>
 
-<div className="form-group">
-  <label className="form-label">Leave Taken</label>
-  <input
-    type="number"
-    className="form-input"
-    name="leaveTaken"
-    value={formData.leaveTaken}
-    onChange={handleInputChange}
-    min="0"
-  />
-  <small className="form-help">
-    Enter leaves taken this month. In payslip, remaining leaves will show as: {formData.remainingLeaves} - {formData.leaveTaken} = {Math.max(0, (formData.remainingLeaves || 0) - (formData.leaveTaken || 0))}
-  </small>
-</div>
+                      <div className="form-group">
+                        <label className="form-label">Leave Taken</label>
+                        <input
+                          type="number"
+                          className="form-input"
+                          name="leaveTaken"
+                          value={formData.leaveTaken}
+                          onChange={handleInputChange}
+                          min="0"
+                        />
+                        <small className="form-help">
+                          Enter leaves taken this month. In payslip, remaining leaves will show as: {formData.remainingLeaves} - {formData.leaveTaken} = {Math.max(0, (formData.remainingLeaves || 0) - (formData.leaveTaken || 0))}
+                        </small>
+                      </div>
                     </div>
  
-                   // Add this to the calculated values section in the salary form:
-<div className="calculated-values-section">
-  <h5 className="calculated-title">Automatically Calculated Values</h5>
-  <div className="calculated-grid">
-    <div className="calculated-item">
-      <span className="calculated-label">LOP Days:</span>
-      <span className="calculated-value">{calculatedValues.lopDays}</span>
-    </div>
-    <div className="calculated-item">
-      <span className="calculated-label">Final Paid Days:</span>
-      <span className="calculated-value">{calculatedValues.finalPaidDays}</span>
-    </div>
-    <div className="calculated-item">
-      <span className="calculated-label">Basic Pay (Adjusted):</span>
-      <span className="calculated-value currency">Rs.{calculatedValues.basicPay.toFixed(2)}</span>
-    </div>
-    {/* 🆕 ADD LEAVES CALCULATION DISPLAY */}
-    <div className="calculated-item">
-      <span className="calculated-label">Remaining Leaves for Next Month:</span>
-      <span className="calculated-value highlight">
-        {Math.max(0, (formData.remainingLeaves || 0) - (formData.leaveTaken || 0))}
-      </span>
-    </div>
-    {calculatedValues.lopDays > 0 && (
-      <div className="calculated-note">
-        <p><strong>Calculation:</strong> Basic Pay = (Rs.{formData.basicSalary || '0'} / 30) * {calculatedValues.finalPaidDays} = Rs.{calculatedValues.basicPay.toFixed(2)}</p>
-        <p><strong>Note:</strong> {calculatedValues.lopDays} LOP day(s) detected. Basic pay has been adjusted based on {calculatedValues.finalPaidDays} paid days.</p>
-      </div>
-    )}
-  </div>
-</div>
+                  <div className="calculated-values-section">
+                    <h5 className="calculated-title">Automatically Calculated Values</h5>
+                    <div className="calculated-grid">
+                      <div className="calculated-item">
+                        <span className="calculated-label">LOP Days:</span>
+                        <span className="calculated-value">{calculatedValues.lopDays}</span>
+                      </div>
+                      <div className="calculated-item">
+                        <span className="calculated-label">Final Paid Days:</span>
+                        <span className="calculated-value">{calculatedValues.finalPaidDays}</span>
+                      </div>
+                      <div className="calculated-item">
+                        <span className="calculated-label">Basic Pay (Adjusted):</span>
+                        <span className="calculated-value currency">Rs.{calculatedValues.basicPay.toFixed(2)}</span>
+                      </div>
+                      {/* 🆕 ADD LEAVES CALCULATION DISPLAY */}
+                      <div className="calculated-item">
+                        <span className="calculated-label">Remaining Leaves for Next Month:</span>
+                        <span className="calculated-value highlight">
+                          {Math.max(0, (formData.remainingLeaves || 0) - (formData.leaveTaken || 0))}
+                        </span>
+                      </div>
+                      {calculatedValues.lopDays > 0 && (
+                        <div className="calculated-note">
+                          <p><strong>Calculation:</strong> Basic Pay = (Rs.{formData.basicSalary || '0'} / 30) * {calculatedValues.finalPaidDays} = Rs.{calculatedValues.basicPay.toFixed(2)}</p>
+                          <p><strong>Note:</strong> {calculatedValues.lopDays} LOP day(s) detected. Basic pay has been adjusted based on {calculatedValues.finalPaidDays} paid days.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   </div>
  
                   {/* Additional Earnings */}

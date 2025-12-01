@@ -408,43 +408,43 @@ export const getPaymentProof = async (req, res) => {
 };
 // Update invoice status in backend
 // Update invoice status in backend
-const updateInvoiceEmailStatus = async (invoiceId, invoice) => {
-  try {
-    const updateData = {
-      status: 'sent', // ✅ THIS MUST BE 'sent' to change from draft to sent
-      emailSent: true,
-      emailSentAt: new Date(),
-      // Include all required fields to avoid validation errors
-      customerId: invoice.customerId._id,
-      items: invoice.items.map(item => ({
-        description: item.description,
-        remarks: item.remarks || "",
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        amount: item.amount
-      })),
-      totalAmount: invoice.totalAmount,
-      date: invoice.date,
-      dueDate: invoice.dueDate,
-      taxPercent: invoice.taxPercent || 0,
-      notes: invoice.notes || '',
-      currency: invoice.currency || 'USD'
-    };
+// const updateInvoiceEmailStatus = async (invoiceId, invoice) => {
+//   try {
+//     const updateData = {
+//       status: 'sent', // ✅ THIS MUST BE 'sent' to change from draft to sent
+//       emailSent: true,
+//       emailSentAt: new Date(),
+//       // Include all required fields to avoid validation errors
+//       customerId: invoice.customerId._id,
+//       items: invoice.items.map(item => ({
+//         description: item.description,
+//         remarks: item.remarks || "",
+//         unitPrice: item.unitPrice,
+//         quantity: item.quantity,
+//         amount: item.amount
+//       })),
+//       totalAmount: invoice.totalAmount,
+//       date: invoice.date,
+//       dueDate: invoice.dueDate,
+//       taxPercent: invoice.taxPercent || 0,
+//       notes: invoice.notes || '',
+//       currency: invoice.currency || 'USD'
+//     };
 
-    console.log('🔄 Updating invoice status to "sent":', invoiceId);
-    console.log('📤 Update data:', updateData);
+//     console.log('🔄 Updating invoice status to "sent":', invoiceId);
+//     console.log('📤 Update data:', updateData);
 
-    // Make sure this API call is working
-    const response = await billingService.updateInvoice(invoiceId, updateData);
-    console.log('✅ Invoice status updated to "sent" successfully');
+//     // Make sure this API call is working
+//     const response = await billingService.updateInvoice(invoiceId, updateData);
+//     console.log('✅ Invoice status updated to "sent" successfully');
     
-    return response;
-  } catch (error) {
-    console.error('❌ Error updating invoice status:', error);
-    console.error('❌ Error details:', error.response?.data);
-    throw error;
-  }
-};
+//     return response;
+//   } catch (error) {
+//     console.error('❌ Error updating invoice status:', error);
+//     console.error('❌ Error details:', error.response?.data);
+//     throw error;
+//   }
+// };
 
 // Get payment proof info for a specific invoice
 export const getInvoicePaymentProof = async (req, res) => {
@@ -771,18 +771,68 @@ if (!company.companyName || !company.address) {
 
     const customerCompany = customer.company;
 
-    if (customerCompany) {
-      doc.fontSize(10).font('Helvetica-Bold')
-         .text(customerCompany, leftColumn, currentY);
-      currentY += 20;
-    }
+    // if (customerCompany) {
+    //   doc.fontSize(10).font('Helvetica-Bold')
+    //      .text(customerCompany, leftColumn, currentY);
+    //   currentY += 20;
+    // }
+    
 
-    const addressLines = customer.address.split('\n').filter(line => line.trim() !== '');
-    addressLines.forEach((line, index) => {
+// Now add the company name as part of the address formatting
+const addressLines = [];
+
+// Add company name WITHOUT comma at the end
+if (customerCompany) {
+  addressLines.push(customerCompany); // No comma here
+}
+
+// Add address lines with commas
+if (customer.address?.addressLine1) {
+  let line = customer.address.addressLine1;
+  if (!line.endsWith(',')) line += ',';
+  addressLines.push(line);
+}
+if (customer.address?.addressLine2) {
+  let line = customer.address.addressLine2;
+  if (!line.endsWith(',')) line += ',';
+  addressLines.push(line);
+}
+
+// Build city, state, pincode line - with comma at end
+const cityStatePin = [];
+if (customer.address?.city) {
+  cityStatePin.push(customer.address.city);
+}
+if (customer.address?.state?.name) {
+  cityStatePin.push(customer.address.state.name);
+}
+if (customer.address?.pinCode) {
+  cityStatePin.push(customer.address.pinCode);
+}
+if (cityStatePin.length > 0) {
+  addressLines.push(cityStatePin.join(', ') + ',');
+}
+
+// Add country - NO comma at end for last line
+if (customer.address?.country?.name) {
+  addressLines.push(customer.address.country.name);
+}
+
+// Render address lines
+addressLines.forEach((line, index) => {
+  if (line && line.trim() !== '') {
+    // Use bold font for company name (first line), regular for others
+    if (index === 0 && customerCompany) {
+      doc.fontSize(10).font('Helvetica-Bold')
+         .text(line, leftColumn, currentY);
+    } else {
       doc.fontSize(10).font('Helvetica')
-         .text(line.trim(), leftColumn, currentY);
-      currentY += 15;
-    });
+         .text(line, leftColumn, currentY);
+    }
+    currentY += 15;
+  }
+});
+
 
     if (customer.phone) {
       doc.text(`Phone: ${customer.phone}`, leftColumn, currentY);
@@ -960,12 +1010,15 @@ if (!company.companyName || !company.address) {
       "Please include the invoice number on your check"
     ];
 
+    doc.fontSize(10).font('Helvetica').text("Total payment due in",leftColumn+10 , currentY);
+    doc.fontSize(10).font('Helvetica').text(customer.paymentTerms, leftColumn + 10 , currentY + 90);
+
     // Add default comments with bullet points
-    defaultComments.forEach((comment, index) => {
-      doc.fontSize(10).font('Helvetica')
-         .text(`${'•'} ${comment}`, leftColumn + 10, currentY);
-      currentY += 15;
-    });
+    // defaultComments.forEach((comment, index) => {
+    //   doc.fontSize(10).font('Helvetica')
+    //      .text(`${'•'} ${comment}`, leftColumn + 10, currentY);
+    //   currentY += 15;
+    // });
 
     // ===== SIGNATURE SECTION =====
     const signatureY = 680;
@@ -1196,19 +1249,60 @@ export const downloadInvoice = async (req, res) => {
     currentY += 25;
 
     const customerCompany = invoice.customerId.company;
+// Now add the company name as part of the address formatting with commas
+const addressLines = [];
 
-    if (customerCompany) {
+// Add company name WITHOUT comma at the end
+if (customerCompany) {
+  addressLines.push(customerCompany); // No comma here
+}
+
+// Add address lines with commas
+if (invoice.customerId.address?.addressLine1) {
+  let line = invoice.customerId.address.addressLine1;
+  if (!line.endsWith(',')) line += ',';
+  addressLines.push(line);
+}
+if (invoice.customerId.address?.addressLine2) {
+  let line = invoice.customerId.address.addressLine2;
+  if (!line.endsWith(',')) line += ',';
+  addressLines.push(line);
+}
+
+// Build city, state, pincode line - with comma at end
+const cityStatePin = [];
+if (invoice.customerId.address?.city) {
+  cityStatePin.push(invoice.customerId.address.city);
+}
+if (invoice.customerId.address?.state?.name) {  // Use state.name instead of code
+  cityStatePin.push(invoice.customerId.address.state.name);
+}
+if (invoice.customerId.address?.pinCode) {
+  cityStatePin.push(invoice.customerId.address.pinCode);
+}
+if (cityStatePin.length > 0) {
+  addressLines.push(cityStatePin.join(', ') + ',');
+}
+
+// Add country - NO comma at end for last line
+if (invoice.customerId.address?.country?.name) {  // Use country.name instead of code
+  addressLines.push(invoice.customerId.address.country.name);
+}
+
+// Render address lines
+addressLines.forEach((line, index) => {
+  if (line && line.trim() !== '') {
+    // Use bold font for company name (first line), regular for others
+    if (index === 0 && customerCompany) {
       doc.fontSize(10).font('Helvetica-Bold')
-         .text(customerCompany, leftColumn, currentY);
-      currentY += 20;
-    }
-
-    const addressLines = invoice.customerId.address.split('\n').filter(line => line.trim() !== '');
-    addressLines.forEach((line, index) => {
+         .text(line, leftColumn, currentY);
+    } else {
       doc.fontSize(10).font('Helvetica')
-         .text(line.trim(), leftColumn, currentY);
-      currentY += 15;
-    });
+         .text(line, leftColumn, currentY);
+    }
+    currentY += 15;
+  }
+});
 
     if (invoice.customerId.phone) {
       doc.text(`Phone: ${invoice.customerId.phone}`, leftColumn, currentY);
@@ -1381,17 +1475,26 @@ export const downloadInvoice = async (req, res) => {
     doc.fontSize(10).font('Helvetica-Bold').text("Terms & Conditions", leftColumn, currentY);
     currentY += 15;
 
-    const defaultComments = [
-      "Total payment due in 30 days",
-      "Please include the invoice number on your check"
-    ];
+const defaultComments = [
+  "Please include the invoice number on your check"
+];
 
-    // Add default comments with bullet points
-    defaultComments.forEach((comment, index) => {
-      doc.fontSize(10).font('Helvetica')
-         .text(`${'•'} ${comment}`, leftColumn + 10, currentY);
-      currentY += 15;
-    });
+// Create the dynamic first line
+const paymentDueText = `Total payment due in ${invoice.customerId.paymentTerms} days`;
+
+// Print the full line dynamically
+doc.fontSize(10)
+   .font('Helvetica')
+   .text(paymentDueText, leftColumn + 10, currentY);
+
+currentY += 15;
+
+// Add remaining default comments with bullet points
+defaultComments.forEach((comment) => {
+  doc.fontSize(10).font('Helvetica')
+     .text(`• ${comment}`, leftColumn + 10, currentY);
+  currentY += 15;
+});
 
     // ===== SIGNATURE SECTION =====
     const signatureY = 680;
