@@ -730,7 +730,7 @@ if (!company.companyName || !company.address) {
          .text("DESCRIPTION", leftColumn + 10, yPosition + 5)
          .text("REMARKS", leftColumn + 120, yPosition + 5)
          .text("UNIT PRICE", leftColumn + 200, yPosition + 5) // NEW COLUMN
-         .text("QTY", leftColumn + 260, yPosition + 5) // NEW COLUMN
+         .text("QTY", leftColumn + 280, yPosition + 5) // NEW COLUMN
          .text(`AMOUNT (${currencySymbol})`, pageWidth - 80, yPosition + 5, { align: "right" });
     };
 
@@ -906,14 +906,14 @@ addressLines.forEach((line, index) => {
       });
 
       // Draw unit price
-      doc.text(`${currencySymbol}${formattedUnitPrice}`, leftColumn + 200, currentY, {
+      doc.text(`${currencySymbol}${formattedUnitPrice}`, leftColumn + 195, currentY, {
         width: 50,
         align: 'right'
       });
 
       // Draw quantity
-      doc.text(quantity.toString(), leftColumn + 260, currentY, {
-        width: 30,
+      doc.text(quantity.toString(), leftColumn + 278, currentY, {
+        width: 20,
         align: 'center'
       });
 
@@ -1208,7 +1208,7 @@ export const downloadInvoice = async (req, res) => {
          .text("DESCRIPTION", leftColumn + 10, yPosition + 5)
          .text("REMARKS", leftColumn + 120, yPosition + 5)
          .text("UNIT PRICE", leftColumn + 200, yPosition + 5) // NEW COLUMN
-         .text("QTY", leftColumn + 260, yPosition + 5) // NEW COLUMN
+         .text("QTY", leftColumn + 280, yPosition + 5) // NEW COLUMN
          .text(`AMOUNT (${currencySymbol})`, pageWidth - 80, yPosition + 5, { align: "right" });
     };
 
@@ -1382,14 +1382,14 @@ addressLines.forEach((line, index) => {
       });
 
       // Draw unit price
-      doc.text(`${currencySymbol}${formattedUnitPrice}`, leftColumn + 200, currentY, {
+      doc.text(`${currencySymbol}${formattedUnitPrice}`, leftColumn + 195, currentY, {
         width: 50,
         align: 'right'
       });
 
       // Draw quantity
-      doc.text(quantity.toString(), leftColumn + 260, currentY, {
-        width: 30,
+      doc.text(quantity.toString(), leftColumn + 278, currentY, {
+        width: 20,
         align: 'center'
       });
 
