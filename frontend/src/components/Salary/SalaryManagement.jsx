@@ -40,19 +40,6 @@ const [hikeFilterMonth, setHikeFilterMonth] = useState('');
 const [hikeFilterYear, setHikeFilterYear] = useState('');
 const [showAllHikes, setShowAllHikes] = useState(false); // To toggle between latest and all
 
-// // Debounce utility function
-// const debounce = (func, wait) => {
-//   let timeout;
-//   return function executedFunction(...args) {
-//     const later = () => {
-//       clearTimeout(timeout);
-//       func(...args);
-//     };
-//     clearTimeout(timeout);
-//     timeout = setTimeout(later, wait);
-//   };
-// };
- 
   const [formData, setFormData] = useState({
     employeeId: '',
     month: currentMonth,
@@ -375,44 +362,12 @@ const handleEmployeeSelect = async (employeeId) => {
       setHikeFilterYear('');
       setShowAllHikes(false);
       await loadHikeHistory(data.salary.employeeId, true);
-
-    //   // Reset to default state
-    // setHikeFilters({ month: '', year: '' });
-    // setViewMode('latest');
-    // Don't call loadHikeHistory here - the useEffect will handle it
     } catch (error) {
       console.error('Error loading salary details:', error);
       alert('Error loading salary details');
     }
   };
 
-//   // Handle filter changes - FIXED: Optimized filter handling
-// const handleFilterChange = useCallback((newFilters) => {
-//   setHikeFilters(prev => {
-//     const updatedFilters = { ...prev, ...newFilters };
-   
-//     // Determine view mode based on filters
-//     const hasFilters = updatedFilters.month || updatedFilters.year;
-//     setViewMode(hasFilters ? 'all' : 'latest');
-   
-//     return updatedFilters;
-//   });
-// }, []);
-
-// // Clear all filters - FIXED: Instant clear
-// const handleClearFilters = useCallback(() => {
-//   setHikeFilters({ month: '', year: '' });
-//   setViewMode('latest');
-//   // No need to call loadHikeHistory here - the useEffect will trigger it
-// }, []);
-
-// // View all hikes without filters
-// const handleViewAllHikes = useCallback(() => {
-//   setHikeFilters({ month: '', year: '' });
-//   setViewMode('all');
-//   // No need to call loadHikeHistory here - the useEffect will trigger it
-// }, []);
- 
   const handleGiveHike = (salary) => {
     setSelectedSalaryDetail(salary);
     setShowHikeForm(true);
@@ -458,33 +413,6 @@ const handleEmployeeSelect = async (employeeId) => {
     }
   };
 
-//   // Debounced filter function to prevent rapid API calls
-// const debouncedLoadHikeHistory = useRef(
-//   debounce(async (employeeId, filters, mode) => {
-//     if (!employeeId) return;
-   
-//     setHikeHistoryLoading(true);
-//     try {
-//       const apiFilters = { ...filters };
-     
-//       if (mode === 'latest') {
-//         apiFilters.latest = true;
-//       }
-//       // If mode is 'all' but no specific filters, we don't add latest flag
-     
-//       console.log('Loading hike history with filters:', apiFilters);
-     
-//       const data = await salaryService.getHikeHistory(selectedSalaryDetail.employeeId, apiFilters);
-//       setHikeHistory(data.hikeHistory || []);
-//     } catch (error) {
-//       console.error('Error loading hike history:', error);
-//       setHikeHistory([]);
-//     } finally {
-//       setHikeHistoryLoading(false);
-//     }
-//   }, 300) // 300ms debounce delay
-// ).current;
-
  
   const loadHikeHistory = async (employeeId, showLatest = true) => {
   if (!employeeId) return;
@@ -516,28 +444,6 @@ const handleEmployeeSelect = async (employeeId) => {
     setHikeHistoryLoading(false);
   }
 };
-
-// // Load hike history with current filters and view mode
-// const loadHikeHistory = useCallback((forceLatest = false) => {
-//   if (!selectedSalaryDetail?.employeeId) return;
- 
-//   const currentViewMode = forceLatest ? 'latest' : viewMode;
-//   const currentFilters = forceLatest ? { month: '', year: '' } : hikeFilters;
- 
-//   if (forceLatest) {
-//     setHikeFilters({ month: '', year: '' });
-//     setViewMode('latest');
-//   }
- 
-//   debouncedLoadHikeHistory(selectedSalaryDetail.employeeId, currentFilters, currentViewMode);
-// }, [selectedSalaryDetail?.employeeId, hikeFilters, viewMode, debouncedLoadHikeHistory]);
-
-// // Load hike history when modal opens or filters change
-// useEffect(() => {
-//   if (showSalaryDetail && selectedSalaryDetail?.employeeId) {
-//     loadHikeHistory();
-//   }
-// }, [showSalaryDetail, selectedSalaryDetail?.employeeId, loadHikeHistory]);
 
 
   const checkDuplicateSalary = (employeeId, month, year, excludeSalaryId = null) => {
@@ -1141,17 +1047,10 @@ const handleEditSalary = async (salary) => {
                     <div className="breakdown-column">
                       <h5>Earnings</h5>
                       <div className="breakdown-items">
-                        {/* <div className="breakdown-item">
-                          <span>Basic Salary:</span>
-                          <span className="currency">Rs.{selectedSalaryDetail.basicSalary?.toFixed(2)}</span>
-                        </div> */}
                         {selectedSalaryDetail.earnings?.map((earning, index) => (
                           <div key={index} className="breakdown-item">
                             <span>{earning.type || 'Additional Earning'}:</span>
                             <span className="currency">Rs.{earning.amount?.toFixed(2)}</span>
-                            {/* {earning.percentage && (
-                              <span className="percentage-badge">({earning.percentage}%)</span>
-                            )} */}
                           </div>
                         ))}
                         <div className="breakdown-total">
@@ -1168,9 +1067,6 @@ const handleEditSalary = async (salary) => {
                           <div key={index} className="breakdown-item">
                             <span>{deduction.type || 'Deduction'}:</span>
                             <span className="currency">Rs.{deduction.amount?.toFixed(2)}</span>
-                            {/* {deduction.percentage && (
-                              <span className="percentage-badge">({deduction.percentage}%)</span>
-                            )} */}
                           </div>
                         ))}
                         <div className="breakdown-total">
@@ -1307,12 +1203,6 @@ const handleEditSalary = async (salary) => {
     </div>
   ) : hikeHistory.length > 0 ? (
     <div className="hike-history-container">
-      {/* {!showAllHikes && hikeHistory.length === 1 && (
-        <div className="latest-hike-banner">
-          <span className="banner-text">Showing Latest Hike</span>
-        </div>
-      )}
-       */}
       {(showAllHikes || hikeFilterMonth || hikeFilterYear) && hikeHistory.length > 0 && (
         <div className="hike-results-info">
           Found {hikeHistory.length} hike{hikeHistory.length !== 1 ? 's' : ''}
@@ -1616,18 +1506,6 @@ const handleEditSalary = async (salary) => {
     Enter leaves taken this month. In payslip, remaining leaves will show as: {formData.remainingLeaves} - {formData.leaveTaken} = {Math.max(0, (formData.remainingLeaves || 0) - (formData.leaveTaken || 0))}
   </small>
 </div>
-                      {/* <div className="form-group">
-                        <label className="form-label">Leave Taken</label>
-                        <input
-                          type="number"
-                          className="form-input"
-                          name="leaveTaken"
-                          value={formData.leaveTaken}
-                          onChange={handleInputChange}
-                          min="0"
-                        />
-                        <small className="form-help">Enter leaves taken this month</small>
-                      </div> */}
                     </div>
  
                    // Add this to the calculated values section in the salary form:
@@ -1928,9 +1806,6 @@ const handleEditSalary = async (salary) => {
                   <div className="payslip-period">
                     {displayPayslip.month} {displayPayslip.year}
                   </div>
-                  {/* <div className="payslip-status-badge current">
-                    {displayPayslip.month === currentMonth && displayPayslip.year === currentYear ? 'CURRENT' : 'OLDER'}
-                  </div> */}
                   <div className="payslip-amount-section">
                     <div className="amount-display">
                       <span className="amount-label">Net Amount:</span>

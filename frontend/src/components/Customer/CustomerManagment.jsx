@@ -166,10 +166,6 @@ const CustomerManagment = () => {
 
   // Validate payment terms
   const validatePaymentTerms = (paymentTerms) => {
-    // if (paymentTerms === '' || paymentTerms === null || paymentTerms === undefined) {
-    //   setPaymentTermsError('Payment terms is required');
-    //   return false;
-    // }
     
     const terms = Number(paymentTerms);
     if (isNaN(terms)) {
@@ -178,7 +174,7 @@ const CustomerManagment = () => {
     }
     
     if (terms < 0 || terms > 365) {
-      setPaymentTermsError('Payment terms must be between 0 and 365 days');
+      setPaymentTermsError('Payment terms must be between 1 and 365 days');
       return false;
     }
     

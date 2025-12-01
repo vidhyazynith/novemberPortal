@@ -31,11 +31,6 @@ export const registerEmployee = async (req, res) => {
     if (!address.addressLine1 || !address.country || !address.state || !address.city || !address.pinCode) {
       return res.status(400).json({ message: 'All address fields are required' });
     }
-  // Validate PIN code format
-    // const pinRegex = /^[1-9][0-9]{5}$/;
-    // if (!pinRegex.test(address.pinCode)) {
-    //   return res.status(400).json({ message: 'Please enter a valid 6-digit PIN code' });
-    // }
 
     const phoneNumber = parsePhoneNumberFromString(`${countryCode}${phone}`);
     if (!phoneNumber || !phoneNumber.isValid()) {
@@ -250,13 +245,7 @@ export const updateEmployee = async (req, res) => {
       ...otherFields,
       status: status || 'Active'
     };
-   // Validate address if provided
-    // if (address) {
-    //   if (address.pinCode && !/^[1-9][0-9]{5}$/.test(address.pinCode)) {
-    //     return res.status(400).json({ message: 'Please enter a valid 6-digit PIN code' });
-    //   }
-    //   updateData.address = address;
-    // }
+
     // Validate phone only if provided
     if (typeof phone !== 'undefined') {
       const phoneNumber = parsePhoneNumberFromString(`${countryCode}${phone}`);

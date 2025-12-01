@@ -314,13 +314,6 @@ const handleUpdateEmployee = async (e) => {
       return;
     }
 
-    // // Validate PIN code format
-    // const pinRegex = /^[1-9][0-9]{5}$/;
-    // if (!pinRegex.test(formData.pinCode)) {
-    //   setError('Please enter a valid 6-digit PIN code');
-    //   setLoading(false);
-    //   return;
-    // }
   // Validate email format if provided and changed
   const currentEmail = editingEmployee.email;
   const newEmail = formData.email;
@@ -366,15 +359,6 @@ const handleUpdateEmployee = async (e) => {
     if (!updateData.password) {
       delete updateData.password;
     }
-    
-      // // Remove individual address fields since we're using the address object
-      // delete updateData.addressLine1;
-      // delete updateData.addressLine2;
-      // delete updateData.country;
-      // delete updateData.state;
-      // delete updateData.city;
-      // delete updateData.pinCode;
-
 
     // ✅ Remove PAN field if it hasn't changed (to avoid unnecessary validation)
     if (newPan === currentPan) {
@@ -522,13 +506,6 @@ const handleUpdateEmployee = async (e) => {
       return;
     }
 
-    // Validate PIN code format
-    // const pinRegex = /^[1-9][0-9]{5}$/;
-    // if (!pinRegex.test(formData.pinCode)) {
-    //   setError('Please enter a valid 6-digit PIN code');
-    //   setLoading(false);
-    //   return;
-    // }
 
     if (!validatePanNumber(formData.panNumber)) {
       setLoading(false);
@@ -735,14 +712,6 @@ const handleUpdateEmployee = async (e) => {
         } else if (name === 'country'){
           handleCountryChange(value);
         }
-    //     else if (name === 'pinCode') {
-    //   // Only allow numbers for PIN code
-    //   const numericValue = value.replace(/\D/g, '');
-    //   setFormData({
-    //     ...formData,
-    //     [name]: numericValue.slice(0, 6)
-    //   });
-    // }
         else if (name === 'email') {
           setFormData({
             ...formData,
@@ -852,12 +821,6 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
   setPanError('');
   return true;
 };
-// Validate PIN code format
-  //const validatePinCode = (pin) => {
-  //   const pinRegex =  /^[A-Za-z0-9]{2,10}$/;
-  //   return pinRegex.test(pin);
-  // };
-
 
   return (
     <div className="employee-management">
@@ -1404,11 +1367,8 @@ const validatePanNumber = (pan, isUpdate = false, currentPan = '') => {
                       value={formData.pinCode}
                       onChange={handleInputChange}
                       placeholder="Enter postal code"
-                      // pattern="[A-Za-z0-9]{2,10}"
-                      // title="Please enter a valid postal code (2-10 alphanumeric characters)"
                       required
                       maxLength="20"
-                      // className={formData.pinCode && !validatePinCode(formData.pinCode) ? 'invalid-input' : ''}
                     />
                     <small>Enter the postal code for the selected country</small>
                   </div>

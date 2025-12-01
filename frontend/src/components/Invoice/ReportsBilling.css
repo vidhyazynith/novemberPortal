@@ -953,12 +953,12 @@ body {
 
 /* New column styles for invoice items table */
 .column-description {
-  width: 140px; /* Reduced from 180px */
+  width: 140px; 
   min-width: 120px;
 }
 
 .column-remarks {
-  width: 120px; /* Reduced from 150px */
+  width: 120px; 
   min-width: 100px;
 }
 
@@ -968,7 +968,7 @@ body {
 }
 
 .column-quantity {
-  width: 80px; /* Reduced width for quantity */
+  width: 80px; 
   min-width: 70px;
 }
 
@@ -979,7 +979,7 @@ body {
 
 /* Make the table responsive for new columns */
 .invoice-items-table table {
-  min-width: 700px; /* Reduced from 800px since we made columns smaller */
+  min-width: 700px;
 }
 
 /* Style for read-only amount field */
@@ -993,44 +993,44 @@ body {
 /* Adjust column widths for the new layout - THIS IS THE KEY FIX */
 .invoice-items-table th:nth-child(1),
 .invoice-items-table td:nth-child(1) {
-  width: 140px; /* Description - REDUCED */
+  width: 140px; 
   min-width: 120px;
 }
 
 .invoice-items-table th:nth-child(2),
 .invoice-items-table td:nth-child(2) {
-  width: 120px; /* Remarks - REDUCED */
+  width: 120px; 
   min-width: 100px;
 }
 
 .invoice-items-table th:nth-child(3),
 .invoice-items-table td:nth-child(3) {
-  width: 120px; /* Unit Price */
+  width: 120px; 
   min-width: 100px;
 }
 
 .invoice-items-table th:nth-child(4),
 .invoice-items-table td:nth-child(4) {
-  width: 80px; /* Quantity - REDUCED */
+  width: 80px; 
   min-width: 70px;
 }
 
 .invoice-items-table th:nth-child(5),
 .invoice-items-table td:nth-child(5) {
-  width: 120px; /* Amount */
+  width: 120px; 
   min-width: 100px;
 }
 
 .invoice-items-table th:nth-child(6),
 .invoice-items-table td:nth-child(6) {
-  width: 100px; /* Action */
+  width: 100px; 
   min-width: 80px;
 }
 
 /* Responsive adjustments for smaller screens */
 @media (max-width: 768px) {
   .invoice-items-table table {
-    min-width: 750px; /* Reduced for mobile */
+    min-width: 750px; 
   }
   
   .invoice-items-table th,

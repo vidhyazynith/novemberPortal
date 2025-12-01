@@ -86,9 +86,6 @@ const CategorySettings = () => {
  
   return (
     <div className="category-settings">
-      {/* <div className="settings-header">
-        <h1>Category Settings</h1>
-      </div> */}
  
       {error && (
         <div className="error-banner">

@@ -159,11 +159,6 @@ const Admin = () => {
     setEmployeeUpdateTrigger(prev => prev + 1);
   };
 
-  // // Calculate monthly salary from employees
-  // const monthlySalary = employees.reduce((total, employee) => {
-  //   return total + (employee.salary || 0);
-  // }, 0);
-  
   // Use real data from transactions
   const totalExpenses = transactionStats.totalExpenses || 0;
   const totalIncome = transactionStats.totalIncome || 0;
@@ -278,19 +273,6 @@ const Admin = () => {
                 </div>
               </div>
               
-              {/* <div className="stat-card">
-                <div className="stat-icon">💵</div>
-                <div className="stat-content">
-                  <h3>Monthly Salary</h3>
-                  <span className="stat-number">
-                    {formatCurrency(monthlySalary)}
-                  </span>
-                  <span className="stat-change positive">
-                    {formatNumber(employees.length)} employees
-                  </span>
-                </div>
-              </div> */}
-              
               <div className="stat-card">
                 <div className="stat-icon">📈</div>
                 <div className="stat-content">
@@ -377,12 +359,6 @@ const Admin = () => {
                       {statsLoading ? 'Loading...' : formatCurrency(totalExpenses)}
                     </span>
                   </div>
-                  {/* <div className="metric">
-                    <span className="metric-label">Salary Expenses:</span>
-                    <span className="metric-value expense">
-                      {formatCurrency(monthlySalary)}
-                    </span>
-                  </div> */}
                   <div className="metric" style={{
                     background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
                     borderColor: '#0ea5e9'

@@ -10,11 +10,11 @@ import {
   getPaymentProof,
   getInvoicePaymentProof,
   updateInvoice,
-  getActiveInvoices, // ADD THIS IMPORT
-  getDisabledInvoices, // ADD THIS IMPORT
-  disableInvoice, // ADD THIS IMPORT
-  restoreInvoice, // ADD THIS IMPORT
-  permanentDeleteInvoice,// ADD THIS IMPORT
+  getActiveInvoices, 
+  getDisabledInvoices, 
+  disableInvoice, 
+  restoreInvoice, 
+  permanentDeleteInvoice,
   getInvoiceDownloadUrl
 } from "../Controllers/invoiceController.js";
 import { authenticateToken, requireRole } from '../middleware/auth.js';
@@ -32,19 +32,19 @@ const upload = multer({
 
 // Invoice routes
 
-router.get("/invoices/active", authenticateToken, requireRole('admin'), getActiveInvoices); // ADD THIS ROUTE
+router.get("/invoices/active", authenticateToken, requireRole('admin'), getActiveInvoices); 
 
 router.post("/generate-invoice", authenticateToken, requireRole('admin'), generateInvoice);
 router.get("/invoices", authenticateToken, requireRole('admin'), getInvoices);
-router.get("/invoices/disabled", authenticateToken, requireRole('admin'), getDisabledInvoices); // ADD THIS ROUTE
+router.get("/invoices/disabled", authenticateToken, requireRole('admin'), getDisabledInvoices); 
 
 router.get("/invoices/:id", authenticateToken, requireRole('admin'), getInvoiceById);
 router.get("/invoices/:id/download", authenticateToken, requireRole('admin'), downloadInvoice);
 router.put("/invoices/:id", authenticateToken, requireRole('admin'), updateInvoice);
 router.delete("/invoices/:id", authenticateToken, requireRole('admin'), deleteInvoice);
-router.patch("/invoices/:id/disable", authenticateToken, requireRole('admin'), disableInvoice); // ADD THIS ROUTE
-router.patch("/invoices/:id/restore", authenticateToken, requireRole('admin'), restoreInvoice); // ADD THIS ROUTE
-router.delete("/invoices/:id/permanent", authenticateToken, requireRole('admin'), permanentDeleteInvoice); // ADD THIS ROUTE
+router.patch("/invoices/:id/disable", authenticateToken, requireRole('admin'), disableInvoice);
+router.patch("/invoices/:id/restore", authenticateToken, requireRole('admin'), restoreInvoice); 
+router.delete("/invoices/:id/permanent", authenticateToken, requireRole('admin'), permanentDeleteInvoice); 
 router.get('/invoices/:id/payment-proof', getInvoicePaymentProof);
 
 router.post("/verify-payment", upload.single('transactionProof'), verifyPayment);

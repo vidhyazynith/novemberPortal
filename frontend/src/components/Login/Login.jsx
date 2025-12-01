@@ -106,13 +106,6 @@ const Login = () => {
               </div>
             )}
 
-            {/* {showDebug && debugInfo && (
-              <div className="debug-info">
-                <strong>Debug Information:</strong>
-                {debugInfo}
-              </div>
-            )} */}
-
             <div className="form-group">
               <label htmlFor="email">Email address</label>
               <input

@@ -467,16 +467,6 @@ const SalaryTemplateManagement = () => {
                       </td>
                       <td>
                         <div className="table-actions" onClick={(e) => e.stopPropagation()}>
-                          {/* <button
-                            className="action-btns primary"
-                            onClick={() => handleTemplateDetail(template)}
-                            title="View Details"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                              <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                          </button> */}
                           <button
                             className="action-btns"
                             onClick={() => handleEditTemplate(template)}
@@ -580,17 +570,10 @@ const SalaryTemplateManagement = () => {
                     <div className="breakdown-column">
                       <h5>Earnings</h5>
                       <div className="breakdown-items">
-                        {/* <div className="breakdown-item">
-                          <span>Basic Salary:</span>
-                          <span className="currency">Rs.{selectedTemplateDetail.basicSalary?.toFixed(2)}</span>
-                        </div> */}
                         {selectedTemplateDetail.earnings?.map((earning, index) => (
                           <div key={index} className="breakdown-item">
                             <span>{earning.type || 'Additional Earning'}:</span>
                             <span className="currency">Rs.{earning.amount?.toFixed(2)}</span>
-                            {/* {earning.percentage && (
-                              <span className="percentage-badge">({earning.percentage}%)</span>
-                            )} */}
                           </div>
                         ))}
                         <div className="breakdown-total">
@@ -607,9 +590,6 @@ const SalaryTemplateManagement = () => {
                           <div key={index} className="breakdown-item">
                             <span>{deduction.type || 'Deduction'}:</span>
                             <span className="currency">Rs.{deduction.amount?.toFixed(2)}</span>
-                            {/* {deduction.percentage && (
-                              <span className="percentage-badge">({deduction.percentage}%)</span>
-                            )} */}
                           </div>
                         ))}
                         <div className="breakdown-total">

@@ -454,7 +454,7 @@
 .header-right {
   display: flex;
   align-items: center;
-  margin-left: auto; /* This pushes it to the right */
+  margin-left: auto; 
 }
  
 .admin-user {

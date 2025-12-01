@@ -14,9 +14,6 @@
   margin-bottom: 20px;
   padding: 0px;
   background: none;
-  /* border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0; */
 }
 
 .header-left {
@@ -658,7 +655,6 @@
   animation: slideIn 0.3s ease-out;
 }
 
-/**/
 /* Changes Confirmation Modal Styles */
 .changes-modal {
   max-width: 600px;

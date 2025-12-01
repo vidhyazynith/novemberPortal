@@ -599,7 +599,6 @@ const InOutTransactions = ({ onTransactionUpdate }) => {
         )}
       </div>
 
-      {/* Rest of the modals remain the same */}
       {/* Add Transaction Modal */}
       {open && (
         <div className="iot-modal-overlay">
