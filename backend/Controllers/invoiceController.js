@@ -553,20 +553,6 @@ export const generateInvoice = async (req, res) => {
       return res.status(404).json({ message: "Company information not found. Please set up company details first." });
     }
 
-    // Fetch or create company info
-    // let company = await Company.findOne();
-    // if (!company) {
-    //   // Create default company info if none exists
-    //   company = await Company.create({
-    //     companyName: 'Zynith IT Solutions',
-    //     address: '123 Business Street, City, State 12345',
-    //     phone: '+1 (555) 123-4567',
-    //     email: 'contact@zynith-it.com',
-    //     taxId: 'TAX-123456789',
-    //     logo: { url: '' },
-    //     signature: { url: '' }
-    //   });
-    // }
 if (!company.companyName || !company.address) {
       console.log('❌ Company information incomplete:', {
         hasCompanyName: !!company.companyName,
@@ -770,13 +756,6 @@ if (!company.companyName || !company.address) {
     currentY += 25;
 
     const customerCompany = customer.company;
-
-    // if (customerCompany) {
-    //   doc.fontSize(10).font('Helvetica-Bold')
-    //      .text(customerCompany, leftColumn, currentY);
-    //   currentY += 20;
-    // }
-    
 
 // Now add the company name as part of the address formatting
 const addressLines = [];
@@ -1006,19 +985,25 @@ addressLines.forEach((line, index) => {
     currentY += 15;
 
     const defaultComments = [
-      "Total payment due in 30 days",
-      "Please include the invoice number on your check"
-    ];
+  "Please include the invoice number on your check"
+];
 
-    doc.fontSize(10).font('Helvetica').text("Total payment due in",leftColumn+10 , currentY);
-    doc.fontSize(10).font('Helvetica').text(customer.paymentTerms, leftColumn + 10 , currentY + 90);
+// Create the dynamic first line
+const paymentDueText = `Total payment due in ${invoice.customerId.paymentTerms} days`;
 
-    // Add default comments with bullet points
-    // defaultComments.forEach((comment, index) => {
-    //   doc.fontSize(10).font('Helvetica')
-    //      .text(`${'•'} ${comment}`, leftColumn + 10, currentY);
-    //   currentY += 15;
-    // });
+// Print the full line dynamically
+doc.fontSize(10)
+   .font('Helvetica')
+   .text(paymentDueText, leftColumn + 10, currentY);
+
+currentY += 15;
+
+// Add remaining default comments with bullet points
+defaultComments.forEach((comment) => {
+  doc.fontSize(10).font('Helvetica')
+     .text(`• ${comment}`, leftColumn + 10, currentY);
+  currentY += 15;
+});
 
     // ===== SIGNATURE SECTION =====
     const signatureY = 680;
