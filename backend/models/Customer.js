@@ -6,7 +6,33 @@ const customerSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true },
   phone: { type: String, required: true },
-  address: { type: String, required: true },
+  // Updated address structure
+  address: {
+    addressLine1: {
+      type: String,
+      required: true
+    },
+    addressLine2: {
+      type: String,
+      default: ''
+    },
+    country: {
+      type: String,
+      required: true
+    },
+    state: {
+      type: String,
+      required: true
+    },
+    city: {
+      type: String,
+      required: true
+    },
+    pinCode: {
+      type: String,
+      required: true
+    }
+  },
   company: { type: String, default: "" },
   customerType: {
     type: String,
@@ -40,7 +66,6 @@ customerSchema.pre("save", async function (next) {
 
 // Virtual for formatted payment terms display
 customerSchema.virtual('paymentTermsDisplay').get(function() {
-  // if (this.paymentTerms === 0) return 'Due on receipt';
   if (this.paymentTerms === 1) return 'Net 1 day';
   return `Net ${this.paymentTerms} days`;
 });

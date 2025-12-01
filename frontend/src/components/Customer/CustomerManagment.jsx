@@ -16,16 +16,77 @@ const CustomerManagment = () => {
   const [paymentTermsError, setPaymentTermsError] = useState('');
   const [emailError, setEmailError] = useState(''); // NEW: Email validation error state
   const [checkingEmail, setCheckingEmail] = useState(false); // NEW: Loading state for email check
+   // State for address dropdowns
+  const [countries, setCountries] = useState([]);
+  const [states, setStates] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState({
+    countries: false,
+    states: false
+  });
+
   // Form state with proper default values
   const [form, setForm] = useState({
     name: '',
     email: '',
     phone: '',
-    address: '',
+    address: {
+      addressLine1: '',
+      addressLine2: '',
+      country: '',
+      state: '',
+      city: '',
+      pinCode: ''
+    },
     company: '',
     customerType: 'individual',
     paymentTerms: 30 // Default to 30 days as number
   });
+
+  // Load countries on component mount
+  const loadCountries = async () => {
+    try {
+      setLoadingLocations(prev => ({ ...prev, countries: true }));
+      const countriesData = await customerService.getCountries();
+      setCountries(countriesData);
+    } catch (error) {
+      console.error('Error loading countries:', error);
+    } finally {
+      setLoadingLocations(prev => ({ ...prev, countries: false }));
+    }
+  };
+
+   // Handle country change
+  const handleCountryChange = async (countryCode, isEdit = false) => {
+    setForm(prev => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        country: countryCode,
+        state: isEdit ? prev.address.state : '',
+        city: isEdit ? prev.address.city : ''
+      }
+    }));
+    setStates([]);
+   
+    if (countryCode) {
+      try {
+        setLoadingLocations(prev => ({ ...prev, states: true }));
+        const statesData = await customerService.getStates(countryCode);
+       
+        if (Array.isArray(statesData)) {
+          setStates(statesData);
+        } else {
+          console.error('States data is not an array:', statesData);
+          setStates([]);
+        }
+      } catch (error) {
+        console.error('Error loading states:', error);
+        setStates([]);
+      } finally {
+        setLoadingLocations(prev => ({ ...prev, states: false }));
+      }
+    }
+  };
 
   // Payment terms display function
   const getPaymentTermsDisplay = (terms) => {
@@ -96,26 +157,40 @@ const CustomerManagment = () => {
 
   useEffect(() => {
     fetchCustomers();
+    loadCountries();
   }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Convert paymentTerms to number
-    if (name === 'paymentTerms') {
-      const numValue = value === '' ? '' : Number(value);
-      setForm({ ...form, [name]: numValue });
+    // Handle address fields separately
+    if (name.startsWith('address.')) {
+      const addressField = name.split('.')[1];
+      setForm(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          [addressField]: value
+        }
+      }));
       
+      // If country changes, load states
+      if (addressField === 'country') {
+        handleCountryChange(value);
+      }
+      // Convert paymentTerms to number
+    } else if (name === 'paymentTerms') {
+        const numValue = value === '' ? '' : Number(value);
+        setForm(prev => ({ ...prev, [name]: numValue }));
+        
       // Validate payment terms
-      // if (value === '') {
-      //   setPaymentTermsError('Payment terms is required');
       if (numValue < 0 || numValue > 365) {
         setPaymentTermsError('Payment terms must be between 0 and 365 days');
       } else {
         setPaymentTermsError('');
       }
     } else if (name === 'email') {
-      setForm({ ...form, [name]: value });
+      setForm(prev => ({ ...prev, [name]: value }));
 
       // Real-time email validation with debounce
       if (value) {
@@ -143,7 +218,7 @@ const CustomerManagment = () => {
         setEmailError('Email is required');
       }
     } else {
-      setForm({ ...form, [name]: value });
+      setForm(prev => ({ ...prev, [name]: value }));
     }
   };
 
@@ -184,10 +259,10 @@ const CustomerManagment = () => {
 
   // Handle phone number change
   const handlePhoneChange = (value) => {
-    setForm({
-      ...form,
+    setForm(prev => ({
+      ...prev,
       phone: value
-    });
+    }));
     
     // Real-time phone validation
     if (value) {
@@ -217,19 +292,28 @@ const CustomerManagment = () => {
         setLoading(false);
         return;
       }
+
       // Validate email format
       if (!isValidEmail(form.email)) {
         setEmailError('Please enter a valid email address');
         setLoading(false);
         return;
       }
+
+       // Validate address fields
+      if (!form.address.addressLine1 || !form.address.country || 
+          !form.address.state || !form.address.city || !form.address.pinCode) {
+        alert('Please fill all required address fields');
+        setLoading(false);
+        return;
+      }
+
       // Check if email already exists (final check before submission)
       const emailExists = await checkEmailExists(form.email);
       if (emailExists) {
         setLoading(false);
         return;
       }
-
 
       // Prepare data for submission
       const submitData = {
@@ -255,7 +339,14 @@ const CustomerManagment = () => {
         name: '',
         email: '',
         phone: '',
-        address: '',
+        address: {
+          addressLine1: '',
+          addressLine2: '',
+          country: '',
+          state: '',
+          city: '',
+          pinCode: ''
+        },
         company: '',
         customerType: 'individual',
         paymentTerms: 30
@@ -281,6 +372,8 @@ const CustomerManagment = () => {
           } else {
             setEmailError('Email already exists');
           }
+        } else if (errorMessage.includes('address')) {
+          alert('Address error: ' + errorMessage);
         } else {
           alert('Error saving customer: ' + errorMessage);
         }
@@ -292,15 +385,47 @@ const CustomerManagment = () => {
     }
   };
   const handleEdit = (customer) => {
+
+    // Handle both old and new address formats
+    let addressData = {
+      addressLine1: '',
+      addressLine2: '',
+      country: '',
+      state: '',
+      city: '',
+      pinCode: ''
+    };
+
+    if (typeof customer.address === 'object') {
+      // New format with address object
+      addressData = {
+        addressLine1: customer.address.addressLine1 || '',
+        addressLine2: customer.address.addressLine2 || '',
+        country: customer.address.country || '',
+        state: customer.address.state || '',
+        city: customer.address.city || '',
+        pinCode: customer.address.pinCode || ''
+      };
+    } else {
+      // Old format with single address string
+      addressData.addressLine1 = customer.address || '';
+    }
+
     setForm({
       name: customer.name || '',
       email: customer.email || '',
       phone: customer.phone || '',
-      address: customer.address || '',
+      address: addressData,
       company: customer.company || '',
       customerType: customer.customerType || 'individual',
       paymentTerms: customer.paymentTerms || 30
     });
+
+    // Load states if country exists
+    if (addressData.country) {
+      handleCountryChange(addressData.country, true);
+    }
+
     setEditingCustomer(customer);
     setPhoneError('');
     setPaymentTermsError('');
@@ -556,14 +681,99 @@ const CustomerManagment = () => {
                 </div>
                
                 <div className="forme-group full-width">
-                  <label>Address</label>
-                  <textarea
-                    name="address"
-                    value={form.address}
-                    onChange={handleChange}
-                    placeholder="Enter full address"
-                    rows="3"
-                  />
+                  <h4>Address Information</h4>
+                 
+                  <div className="forme-row">
+                    <div className="forme-group full-width">
+                      <label>Address Line 1 *</label>
+                      <input
+                        type="text"
+                        name="address.addressLine1"
+                        value={form.address.addressLine1}
+                        onChange={handleChange}
+                        placeholder="Enter street address, building name"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="forme-row">
+                    <div className="forme-group full-width">
+                      <label>Address Line 2 (Optional)</label>
+                      <input
+                        type="text"
+                        name="address.addressLine2"
+                        value={form.address.addressLine2}
+                        onChange={handleChange}
+                        placeholder="Apartment, suite, unit, etc."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="forme-row">
+                    <div className="forme-group">
+                      <label>Country *</label>
+                      <select
+                        name="address.country"
+                        value={form.address.country}
+                        onChange={handleChange}
+                        required
+                        disabled={loadingLocations.countries}
+                      >
+                        <option value="">{loadingLocations.countries ? 'Loading countries...' : 'Select Country'}</option>
+                        {countries.map(country => (
+                          <option key={country.code || country.id} value={country.code || country.id}>
+                            {country.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                     
+                    <div className="forme-group">
+                      <label>State *</label>
+                      <select
+                        name="address.state"
+                        value={form.address.state}
+                        onChange={handleChange}
+                        required
+                        disabled={!form.address.country || loadingLocations.states}
+                      >
+                        <option value="">{loadingLocations.states ? 'Loading states...' : 'Select State'}</option>
+                        {Array.isArray(states) && states.map(state => (
+                          <option key={state.code || state.id || state.iso2} value={state.code || state.id || state.iso2}>
+                            {state.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="forme-row">
+                    <div className="forme-group">
+                      <label>City *</label>
+                      <input
+                        type="text"
+                        name="address.city"
+                        value={form.address.city}
+                        onChange={handleChange}
+                        placeholder="Enter city"
+                        required
+                      />
+                    </div>
+                     
+                    <div className="forme-group">
+                      <label>PIN Code *</label>
+                      <input
+                        type="text"
+                        name="address.pinCode"
+                        value={form.address.pinCode}
+                        onChange={handleChange}
+                        placeholder="Enter postal code"
+                        required
+                        maxLength="20"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
              
@@ -574,7 +784,8 @@ const CustomerManagment = () => {
                 <button 
                   type="submit" 
                   className="submit-btn" 
-                  disabled={loading || phoneError || paymentTermsError|| emailError || !form.email}
+                  disabled={loading || phoneError || paymentTermsError|| emailError || !form.email || !form.address.addressLine1 || !form.address.country ||
+                           !form.address.state || !form.address.city || !form.address.pinCode}
                 >
                   {loading ? 'Saving...' : (editingCustomer ? 'Update Customer' : 'Add Customer')}
                 </button>

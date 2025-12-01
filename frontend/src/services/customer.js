@@ -36,19 +36,14 @@ export const customerService = {
     return response.data;
   }, 
 
-  async getCountries() {
-    const response = await fetch('https://api.countrystatecity.in/v1/countries', {
-      headers: { 'X-CSCAPI-KEY': 'TU5EZnkyT05kZmJzT0lXTlN1cXJlYlg1Um1KQWlaOGFPUGdWc2NIdQ==' }
-    });
-    return response.json();
+    async getCountries() {
+    const response = await api.get('/Customer/countries/list');
+    return response.data.countries || response.data;
   },
 
-  // Get states by country
   async getStates(countryCode) {
-    const response = await fetch(`https://api.countrystatecity.in/v1/countries/${countryCode}/states`, {
-      headers: { 'X-CSCAPI-KEY': 'TU5EZnkyT05kZmJzT0lXTlN1cXJlYlg1Um1KQWlaOGFPUGdWc2NIdQ==' }
-    });
-    return response.json();
+    const response = await api.get(`/Customer/states/${countryCode}`);
+    return response.data.states || response.data;
   },
 
 };

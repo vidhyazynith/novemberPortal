@@ -1417,6 +1417,57 @@
   box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
 }
 
+
+/* Address Section Styles */
+.forme-section {
+  margin-top: 20px;
+  padding: 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #f8fafc;
+}
+
+.forme-section h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #334155;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Form Grid Layout */
+.forme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.forme-group.full-width {
+  grid-column: 1 / -1;
+}
+
+/* Form Row for Address Section */
+.forme-row {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.forme-row .forme-group {
+  flex: 1;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .forme-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .forme-row {
+    flex-direction: column;
+  }
+}
+
 /* Responsive adjustments for new column */
 @media (max-width: 1024px) {
   .customers-table {

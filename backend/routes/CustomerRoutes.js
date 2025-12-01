@@ -6,7 +6,9 @@ import {
   updateCustomer,
   deleteCustomer,
   updateCustomerStatus,
-  getActiveCustomers
+  getActiveCustomers,
+  getCountries,
+  getStatesByCountry
 } from "../Controllers/CustomerController.js";
 import { authenticateToken, requireRole } from '../middleware/auth.js';
  
@@ -20,5 +22,8 @@ router.put("/customers/:id", authenticateToken, requireRole('admin'),updateCusto
 router.delete("/customers/:id", authenticateToken, requireRole('admin'),deleteCustomer);
 router.patch("/customers/:id", authenticateToken, requireRole('admin'),updateCustomerStatus);
 router.get("/active-customers", authenticateToken, getActiveCustomers);
+// Location routes
+router.get("/countries/list", authenticateToken, getCountries);
+router.get("/states/:countryCode", authenticateToken, getStatesByCountry);
 
 export default router;

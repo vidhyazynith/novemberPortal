@@ -1,7 +1,8 @@
 import Customer from "../models/Customer.js";
 import User from "../models/User.js"; // ADD THIS IMPORT
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
- 
+import axios from 'axios';
+
 // Add customer
 export const addCustomer = async (req, res) => {
   try {
@@ -10,6 +11,11 @@ export const addCustomer = async (req, res) => {
     // Validation
     if (!name || !email || !phone) {
       return res.status(400).json({ message: "Contact Person, email, and phone are required fields" });
+    }
+
+    // Validate address object
+    if (!address || !address.addressLine1 || !address.country || !address.state || !address.city || !address.pinCode) {
+      return res.status(400).json({ message: 'All address fields are required' });
     }
 
     // Validate phone number format
@@ -33,6 +39,7 @@ export const addCustomer = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ message: "Email already exists in the system" });
     }
+
     // Check if customer already exists with same email
     const existingCustomer = await Customer.findOne({ email });
     if (existingCustomer) {
@@ -43,7 +50,14 @@ export const addCustomer = async (req, res) => {
       name,
       email:lowerEmail,
       phone,
-      address: address || '',
+      address: {
+        addressLine1: address.addressLine1,
+        addressLine2: address.addressLine2 || '',
+        country: address.country,
+        state: address.state,
+        city: address.city,
+        pinCode: address.pinCode
+      },
       company: company || '',
       customerType: customerType || 'individual',
       paymentTerms: paymentTermsValue,
@@ -124,13 +138,20 @@ export const getCustomerById = async (req, res) => {
 export const updateCustomer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, phone, paymentTerms,email, ...otherFields } = req.body;
+    const { status, phone, paymentTerms, email, address, ...otherFields } = req.body;
 
     // Validate phone number if provided
     if (phone) {
       const phoneNumber = parsePhoneNumberFromString(phone);
       if (!phoneNumber || !phoneNumber.isValid()) {
         return res.status(400).json({ message: 'Invalid phone number format for the selected country' });
+      }
+    }
+
+    // Validate address if provided
+    if (address) {
+      if (!address.addressLine1 || !address.country || !address.state || !address.city || !address.pinCode) {
+        return res.status(400).json({ message: 'All address fields are required' });
       }
     }
 
@@ -179,6 +200,7 @@ export const updateCustomer = async (req, res) => {
         ...(phone && { phone }),
         ...(paymentTerms !== undefined && { paymentTerms }),
         ...(email && { email: email.toLowerCase() }),
+        ...(address && { address }),
         status: status || 'active' // Ensure status is included
 
       },
@@ -250,5 +272,83 @@ export const updateCustomerStatus = async (req, res) => {
   } catch (error) {
     console.error("Error updating customer status:", error);
     res.status(500).json({ message: "Error updating customer status", error: error.message });
+  }
+};
+
+// Add these location API endpoints to your CustomerController.js
+export const getCountries = async (req, res) => {
+  try {
+    console.log('🌍 Fetching countries list...');
+
+    // Use REST Countries API
+    const response = await axios.get('https://restcountries.com/v3.1/all?fields=name,cca2,cca3');
+    console.log('✅ Countries API response received');
+   
+    const countries = response.data.map(country => ({
+      id: country.cca2,
+      code: country.cca2,
+      name: country.name.common
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    console.log(`✅ Found ${countries.length} countries`);
+   
+    return res.json({
+      success: true,
+      countries
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching countries:', error.message);
+   
+    // Return a proper error response
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch countries list',
+      details: error.message
+    });
+  }
+};
+
+// Get states by country
+export const getStatesByCountry = async (req, res) => {
+  try {
+    const { countryCode } = req.params;
+    
+    if (!countryCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Country code is required'
+      });
+    }
+
+    // Since REST Countries API doesn't provide states, let's use the same API as employee module
+    // You need to use the same API key as in your employee module
+    const apiKey = 'TU5EZnkyT05kZmJzT0lXTlN1cXJlYlg1Um1KQWlaOGFPUGdWc2NIdQ=='; // Use your API key
+    
+    const response = await axios.get(`https://api.countrystatecity.in/v1/countries/${countryCode}/states`, {
+      headers: {
+        'X-CSCAPI-KEY': apiKey
+      }
+    });
+    
+    const states = response.data.map(state => ({
+      id: state.iso2,
+      code: state.iso2,
+      name: state.name
+    })).sort((a, b) => a.name.localeCompare(b.name));
+    
+    return res.json({
+      success: true,
+      states
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching states:', error.message);
+    
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch states list',
+      details: error.message
+    });
   }
 };
