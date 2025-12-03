@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Sidebar.css';
  
 // Custom SVG Icons
@@ -76,10 +76,49 @@ const CompanyIcon = () => (
   </svg>
 );
  
+
+const LogoutIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+  </svg>
+);
+
+
 const Sidebar = ({ activeSection, setActiveSection, onLogout }) => {
   const [salaryOpen, setSalaryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
- 
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect screen size on mount and on resize
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      
+      // On mobile, sidebar should be hidden by default
+      // On desktop, sidebar should be expanded by default
+      if (mobile) {
+        setIsCollapsed(false);
+        setIsMobileMenuOpen(false);
+      } else {
+        // On desktop, check localStorage for preference or default to expanded
+        const savedCollapsed = localStorage.getItem('sidebarCollapsed');
+        setIsCollapsed(savedCollapsed === 'true');
+      }
+    };
+
+    // Initial check
+    checkScreenSize();
+
+    // Add resize listener
+    window.addEventListener('resize', checkScreenSize);
+
+    // Cleanup
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
     { id: 'employees', label: 'Employee Management', icon: <UsersIcon /> },
@@ -96,130 +135,195 @@ const Sidebar = ({ activeSection, setActiveSection, onLogout }) => {
     { id: 'transactions', label: 'In/Out Transactions', icon: <RefreshIcon /> },
     { id: 'reports', label: 'Reports & Billing', icon: <ChartIcon /> },
   ];
- 
+
   const settingsItems = [
     { id: 'category-settings', label: 'Category Settings', icon: <CategoryIcon /> },
     { id: 'company-settings', label: 'Company Settings', icon: <CompanyIcon /> }
   ];
- 
+
   const handleSalaryClick = () => {
     setSalaryOpen(!salaryOpen);
-    // If salary is not open and no salary submenu is active, set the first salary item as active
     if (!salaryOpen && !menuItems.find(item => item.id === 'salary')?.submenu?.some(subItem => subItem.id === activeSection)) {
       setActiveSection('salary-records');
     }
   };
- 
+
   const handleSettingsClick = () => {
     setSettingsOpen(!settingsOpen);
-    // If settings is not open, set the first settings item as active
     if (!settingsOpen && !settingsItems.some(item => item.id === activeSection)) {
       setActiveSection('category-settings');
     }
   };
- 
+
   const handleSubmenuClick = (itemId) => {
     setActiveSection(itemId);
+    // Close mobile menu on item click
+    if (isMobile) {
+      setIsMobileMenuOpen(false);
+    }
   };
-const LogoutIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-  </svg>
-);
+
+  const handleNavItemClick = (itemId) => {
+    setActiveSection(itemId);
+    // Close mobile menu on item click
+    if (isMobile) {
+      setIsMobileMenuOpen(false);
+    }
+  };
+
+  const toggleSidebar = () => {
+    if (isMobile) {
+      setIsMobileMenuOpen(!isMobileMenuOpen);
+    } else {
+      const newCollapsedState = !isCollapsed;
+      setIsCollapsed(newCollapsedState);
+      // Save preference to localStorage
+      localStorage.setItem('sidebarCollapsed', newCollapsedState);
+    }
+  };
+
+  const handleLogout = () => {
+    onLogout();
+    // Close mobile menu on logout
+    if (isMobile) {
+      setIsMobileMenuOpen(false);
+    }
+  };
+
+  const handleOverlayClick = () => {
+    setIsMobileMenuOpen(false);
+  };
+
   const isSalaryActive = menuItems.find(item => item.id === 'salary')?.submenu?.some(subItem => subItem.id === activeSection);
   const isSettingsActive = settingsItems.some(item => item.id === activeSection);
- 
+
   return (
-    <div className="sidebar">
-      <div className="company-brand">
-        <h2>Zynith IT Solutions</h2>
-      </div>
-     
-      <nav className="sidebar-nav">
-        {menuItems.map(item => {
-          if (item.submenu) {
-            return (
-              <div key={item.id} className={`dropdown-container ${salaryOpen ? 'open' : ''}`}>
-                <button
-                  className={`nav-item dropdown-toggle ${isSalaryActive ? 'active' : ''}`}
-                  onClick={handleSalaryClick}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  <span className="nav-label">{item.label}</span>
-                  <span className="dropdown-arrow">
-                    {salaryOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                  </span>
-                </button>
-               
-                <div className={`dropdown-menus ${salaryOpen ? 'open' : ''}`}>
-                  {item.submenu.map(subItem => (
-                    <button
-                      key={subItem.id}
-                      className={`dropdown-items ${activeSection === subItem.id ? 'active' : ''}`}
-                      onClick={() => handleSubmenuClick(subItem.id)}
-                    >
-                      <span className="dropdown-icon">{subItem.icon}</span>
-                      <span className="dropdown-label">{subItem.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          }
-         
-          return (
-            <button
-              key={item.id}
-              className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
-              onClick={() => setActiveSection(item.id)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-            </button>
-          );
-        })}
- 
-        {/* Settings with Dropdown */}
-        <div className={`dropdown-container ${settingsOpen ? 'open' : ''}`}>
-          <button
-            className={`nav-item dropdown-toggle ${isSettingsActive ? 'active' : ''}`}
-            onClick={handleSettingsClick}
+    <>
+      {/* Mobile Menu Toggle Button - Only show on mobile */}
+      {isMobile && (
+        <button 
+          className="mobile-menu-toggle" 
+          onClick={toggleSidebar}
+          aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+        >
+          {isMobileMenuOpen ? '✕' : '☰'}
+        </button>
+      )}
+
+      {/* Mobile Overlay - Only show on mobile when menu is open */}
+      {isMobile && isMobileMenuOpen && (
+        <div 
+          className="sidebar-overlay active" 
+          onClick={handleOverlayClick}
+        />
+      )}
+
+      <div className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'open' : ''}`}>
+        {/* Toggle Button for Desktop - Only show on desktop */}
+        {!isMobile && (
+          <button 
+            className="sidebar-toggle" 
+            onClick={toggleSidebar}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <span className="nav-icon"><SettingsIcon /></span>
-            <span className="nav-label">Settings</span>
-            <span className="dropdown-arrow">
-              {settingsOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            </span>
+            {isCollapsed ? '›' : '‹'}
           </button>
-         
-          <div className={`dropdown-menus ${settingsOpen ? 'open' : ''}`}>
-            {settingsItems.map(item => (
+        )}
+
+        <div className="company-brand">
+          <span className="brand-icon">Z</span>
+          <span className="brand-text">Zynith IT Solutions</span>
+        </div>
+
+        <nav className="sidebar-nav">
+          {menuItems.map(item => {
+            if (item.submenu) {
+              return (
+                <div key={item.id} className={`dropdown-container ${salaryOpen ? 'open' : ''}`}>
+                  <button
+                    className={`nav-item dropdown-toggle ${isSalaryActive ? 'active' : ''}`}
+                    onClick={handleSalaryClick}
+                    data-tooltip={item.label}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                    <span className="dropdown-arrow">
+                      {salaryOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                    </span>
+                  </button>
+
+                  <div className={`dropdown-menus ${salaryOpen ? 'open' : ''}`}>
+                    {item.submenu.map(subItem => (
+                      <button
+                        key={subItem.id}
+                        className={`dropdown-items ${activeSection === subItem.id ? 'active' : ''}`}
+                        onClick={() => handleSubmenuClick(subItem.id)}
+                        data-tooltip={subItem.label}
+                      >
+                        <span className="dropdown-icon">{subItem.icon}</span>
+                        <span className="dropdown-label">{subItem.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
               <button
                 key={item.id}
-                className={`dropdown-items ${activeSection === item.id ? 'active' : ''}`}
-                onClick={() => handleSubmenuClick(item.id)}
+                className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                onClick={() => handleNavItemClick(item.id)}
+                data-tooltip={item.label}
               >
-                <span className="dropdown-icon">{item.icon}</span>
-                <span className="dropdown-label">{item.label}</span>
+                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-label">{item.label}</span>
               </button>
-             
-            ))}
+            );
+          })}
+
+          {/* Settings with Dropdown */}
+          <div className={`dropdown-container ${settingsOpen ? 'open' : ''}`}>
+            <button
+              className={`nav-item dropdown-toggle ${isSettingsActive ? 'active' : ''}`}
+              onClick={handleSettingsClick}
+              data-tooltip="Settings"
+            >
+              <span className="nav-icon"><SettingsIcon /></span>
+              <span className="nav-label">Settings</span>
+              <span className="dropdown-arrow">
+                {settingsOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+              </span>
+            </button>
+
+            <div className={`dropdown-menus ${settingsOpen ? 'open' : ''}`}>
+              {settingsItems.map(item => (
+                <button
+                  key={item.id}
+                  className={`dropdown-items ${activeSection === item.id ? 'active' : ''}`}
+                  onClick={() => handleSubmenuClick(item.id)}
+                  data-tooltip={item.label}
+                >
+                  <span className="dropdown-icon">{item.icon}</span>
+                  <span className="dropdown-label">{item.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
- 
-        {/* Logout Button - Added at the bottom */}
-        <button
-          className="nav-item"
-          onClick={onLogout}
-        >
-          <span className="nav-icon"><LogoutIcon /></span>
-          <span className="nav-label">Logout</span>
-        </button>
-      </nav>
-    </div>
-   
+
+          {/* Logout Button */}
+          <button
+            className="nav-item"
+            onClick={handleLogout}
+            data-tooltip="Logout"
+          >
+            <span className="nav-icon"><LogoutIcon /></span>
+            <span className="nav-label">Logout</span>
+          </button>
+        </nav>
+      </div>
+    </>
   );
- 
 };
- 
+
 export default Sidebar;
