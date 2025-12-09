@@ -57,13 +57,17 @@ const CustomerManagment = () => {
 
    // Handle country change
   const handleCountryChange = async (countryCode, isEdit = false) => {
+    // For edit mode, preserve the current state value
+    const currentState = isEdit ? form.address.state : '';
+    const currentCity = isEdit ? form.address.city : '';
+
     setForm(prev => ({
       ...prev,
       address: {
         ...prev.address,
         country: countryCode,
-        state: isEdit ? prev.address.state : '',
-        city: isEdit ? prev.address.city : ''
+        state: currentState, // Preserve state during edit
+        city: currentCity // Preserve city during edit
       }
     }));
     setStates([]);
@@ -91,8 +95,8 @@ const CustomerManagment = () => {
   // Payment terms display function
   const getPaymentTermsDisplay = (terms) => {
     if (terms === 0) return 'Due on receipt';
-    if (terms === 1) return 'Net 1 day';
-    return `Net ${terms} days`;
+    if (terms === 1) return '1 day';
+    return `${terms} days`;
   };
 
    // NEW: Email validation function
@@ -109,7 +113,7 @@ const CustomerManagment = () => {
     }
 
     // For update: if email hasn't changed, no need to check
-    if (editingCustomer && email === editingCustomer.email) {
+    if (editingCustomer && email.toLowerCase() === editingCustomer.email.toLowerCase()) {
       setEmailError('');
       return false;
     }
@@ -276,115 +280,139 @@ const CustomerManagment = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-   
-    try {
-      // Validate phone number
-      if (!validatePhoneNumber(form.phone)) {
-        setLoading(false);
-        return;
-      }
-
-      // Validate payment terms
-      if (!validatePaymentTerms(form.paymentTerms)) {
-        setLoading(false);
-        return;
-      }
-
-      // Validate email format
-      if (!isValidEmail(form.email)) {
-        setEmailError('Please enter a valid email address');
-        setLoading(false);
-        return;
-      }
-
-       // Validate address fields
-      if (!form.address.addressLine1 || !form.address.country || 
-          !form.address.state || !form.address.city || !form.address.pinCode) {
-        alert('Please fill all required address fields');
-        setLoading(false);
-        return;
-      }
-
-      // Check if email already exists (final check before submission)
-      const emailExists = await checkEmailExists(form.email);
-      if (emailExists) {
-        setLoading(false);
-        return;
-      }
-
-      // Prepare data for submission
-      const submitData = {
-        ...form,
-        paymentTerms: form.paymentTerms === '' ? 30 : Number(form.paymentTerms)
-      };
-
-      if (editingCustomer) {
-        // Update existing customer
-        await customerService.updateCustomer(editingCustomer._id, submitData);
-        alert('Customer updated successfully!');
-      } else {
-        // Add new customer
-        await customerService.createCustomer(submitData);
-        alert('Customer added successfully!');
-      }
-     
-      // Refresh customers list
-      await fetchCustomers();
-     
-      // Reset form
-      setForm({
-        name: '',
-        email: '',
-        phone: '',
-        address: {
-          addressLine1: '',
-          addressLine2: '',
-          country: '',
-          state: '',
-          city: '',
-          pinCode: ''
-        },
-        company: '',
-        customerType: 'individual',
-        paymentTerms: 30
-      });
-      setShowAddForm(false);
-      setEditingCustomer(null);
-      setPhoneError('');
-      setPaymentTermsError('');
-      setEmailError('');
-    } catch (error) {
-      console.error('Error saving customer:', error);
-      
-      // Handle specific email duplicate errors from backend
-      if (error.response?.data?.message) {
-        const errorMessage = error.response.data.message;
-
-        // Handle email duplicate errors
-        if (errorMessage.includes('email') || errorMessage.includes('Email')) {
-          if (errorMessage.includes('already exists in the system')) {
-            setEmailError('Email already exists in the system (may belong to an admin or employee)');
-          } else if (errorMessage.includes('Customer with this email already exists')) {
-            setEmailError('Customer with this email already exists');
-          } else {
-            setEmailError('Email already exists');
-          }
-        } else if (errorMessage.includes('address')) {
-          alert('Address error: ' + errorMessage);
-        } else {
-          alert('Error saving customer: ' + errorMessage);
-        }
-      } else {
-        alert('Error saving customer: ' + error.message);
-      }
-    } finally {
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  
+  try {
+    // Validate phone number
+    if (!validatePhoneNumber(form.phone)) {
       setLoading(false);
+      return;
     }
-  };
-  const handleEdit = (customer) => {
+
+    // Validate payment terms
+    if (!validatePaymentTerms(form.paymentTerms)) {
+      setLoading(false);
+      return;
+    }
+
+    // Validate email format
+    if (!isValidEmail(form.email)) {
+      setEmailError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    // Validate address fields
+    if (!form.address.addressLine1 || !form.address.country || 
+        !form.address.state || !form.address.city || !form.address.pinCode) {
+      alert('Please fill all required address fields');
+      setLoading(false);
+      return;
+    }
+
+    // Check if email already exists (final check before submission)
+    const emailExists = await checkEmailExists(form.email);
+    if (emailExists) {
+      setLoading(false);
+      return;
+    }
+
+    // Find country and state names for the backend format
+    const selectedCountry = countries.find(c => c.code === form.address.country);
+    const selectedState = states.find(s => s.code === form.address.state);
+
+    // Prepare data for submission with proper format
+    const submitData = {
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      company: form.company,
+      customerType: form.customerType,
+      paymentTerms: form.paymentTerms === '' ? 30 : Number(form.paymentTerms),
+      address: {
+        addressLine1: form.address.addressLine1,
+        addressLine2: form.address.addressLine2 || '',
+        country: {
+          code: form.address.country,
+          name: selectedCountry?.name || form.address.country
+        },
+        state: {
+          code: form.address.state,
+          name: selectedState?.name || form.address.state
+        },
+        city: form.address.city,
+        pinCode: form.address.pinCode
+      }
+    };
+
+    if (editingCustomer) {
+      // Update existing customer - don't pass countries/states since we're formatting it here
+      await customerService.updateCustomer(editingCustomer._id, submitData);
+      alert('Customer updated successfully!');
+    } else {
+      // Add new customer - don't pass countries/states since we're formatting it here
+      await customerService.createCustomer(submitData);
+      alert('Customer added successfully!');
+    }
+    
+    // Refresh customers list
+    await fetchCustomers();
+    
+    // Reset form
+    setForm({
+      name: '',
+      email: '',
+      phone: '',
+      address: {
+        addressLine1: '',
+        addressLine2: '',
+        country: '',
+        state: '',
+        city: '',
+        pinCode: ''
+      },
+      company: '',
+      customerType: 'individual',
+      paymentTerms: 30
+    });
+    setShowAddForm(false);
+    setEditingCustomer(null);
+    setPhoneError('');
+    setPaymentTermsError('');
+    setEmailError('');
+  } catch (error) {
+    console.error('Error saving customer:', error);
+    
+    // Handle specific email duplicate errors from backend
+    if (error.response?.data?.message) {
+      const errorMessage = error.response.data.message;
+
+      // Handle email duplicate errors
+      if (errorMessage.includes('email') || errorMessage.includes('Email')) {
+        if (errorMessage.includes('already exists in the system')) {
+          setEmailError('Email already exists in the system (may belong to an admin or employee)');
+        } else if (errorMessage.includes('Customer with this email already exists')) {
+          setEmailError('Customer with this email already exists');
+        } else {
+          setEmailError('Email already exists');
+        }
+      } else if (errorMessage.includes('address')) {
+        alert('Address error: ' + errorMessage);
+      } else {
+        alert('Error saving customer: ' + errorMessage);
+      }
+    } else {
+      alert('Error saving customer: ' + error.message);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  const handleEdit = async (customer) => {
 
     // Handle both old and new address formats
     let addressData = {
@@ -396,8 +424,19 @@ const CustomerManagment = () => {
       pinCode: ''
     };
 
-    if (typeof customer.address === 'object') {
-      // New format with address object
+    if (customer.address && typeof customer.address === 'object') {
+      if (customer.address.country && typeof customer.address.country === 'object') {
+      // New format: address.country is {code, name}
+      addressData = {
+        addressLine1: customer.address.addressLine1 || '',
+        addressLine2: customer.address.addressLine2 || '',
+        country: customer.address.country.code || '', // Get code from object
+        state: customer.address.state?.code || '', // Get code from object
+        city: customer.address.city || '',
+        pinCode: customer.address.pinCode || ''
+      };
+    } else {
+      // Old frontend format: address.country is just a string code
       addressData = {
         addressLine1: customer.address.addressLine1 || '',
         addressLine2: customer.address.addressLine2 || '',
@@ -406,11 +445,73 @@ const CustomerManagment = () => {
         city: customer.address.city || '',
         pinCode: customer.address.pinCode || ''
       };
-    } else {
-      // Old format with single address string
-      addressData.addressLine1 = customer.address || '';
     }
+  } else {
+    // Very old format with single address string
+    addressData.addressLine1 = customer.address || '';
+  }
 
+    // Set editing customer first
+    setEditingCustomer(customer);
+    setPhoneError('');
+    setPaymentTermsError('');
+    setEmailError('');
+
+    // If country exists, load states first
+  if (addressData.country) {
+    try {
+      setLoadingLocations(prev => ({ ...prev, states: true }));
+      
+      // Load states for the country
+      const statesData = await customerService.getStates(addressData.country);
+      
+      if (Array.isArray(statesData)) {
+        setStates(statesData);
+        
+        // Now set the form with all data including loaded states
+        setForm({
+          name: customer.name || '',
+          email: customer.email || '',
+          phone: customer.phone || '',
+          address: addressData,
+          company: customer.company || '',
+          customerType: customer.customerType || 'individual',
+          paymentTerms: customer.paymentTerms || 30
+        });
+      } else {
+        console.error('States data is not an array:', statesData);
+        setStates([]);
+        
+        // Still set form even if states failed to load
+        setForm({
+          name: customer.name || '',
+          email: customer.email || '',
+          phone: customer.phone || '',
+          address: addressData,
+          company: customer.company || '',
+          customerType: customer.customerType || 'individual',
+          paymentTerms: customer.paymentTerms || 30
+        });
+      }
+    } catch (error) {
+      console.error('Error loading states:', error);
+      setStates([]);
+      
+      // Set form even if states failed to load
+      setForm({
+        name: customer.name || '',
+        email: customer.email || '',
+        phone: customer.phone || '',
+        address: addressData,
+        company: customer.company || '',
+        customerType: customer.customerType || 'individual',
+        paymentTerms: customer.paymentTerms || 30
+      });
+    } finally {
+      setLoadingLocations(prev => ({ ...prev, states: false }));
+    }
+  } else {
+    // No country, just set the form
     setForm({
       name: customer.name || '',
       email: customer.email || '',
@@ -420,18 +521,10 @@ const CustomerManagment = () => {
       customerType: customer.customerType || 'individual',
       paymentTerms: customer.paymentTerms || 30
     });
-
-    // Load states if country exists
-    if (addressData.country) {
-      handleCountryChange(addressData.country, true);
-    }
-
-    setEditingCustomer(customer);
-    setPhoneError('');
-    setPaymentTermsError('');
-    setEmailError('');
-    setShowAddForm(true);
-  };
+  }
+  
+  setShowAddForm(true);
+};
 
   const handleStatusChange = async (customerId, currentStatus, newStatus) => {
     const confirmationMessage = `Are you sure you want to change the status from ${currentStatus} to ${newStatus}?`;
@@ -828,7 +921,6 @@ const CustomerManagment = () => {
                 <th>Company</th>
                 <th>Type</th>
                 <th>Payment Terms</th>
-                <th>Join Date</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -873,16 +965,6 @@ const CustomerManagment = () => {
                     <td>
                       <div className="payment-terms">
                         {getPaymentTermsDisplay(customer.paymentTerms)}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="join-date">
-                        {customer.joinDate
-                          ? new Date(customer.joinDate).toLocaleDateString()
-                          : customer.createdAt
-                            ? new Date(customer.createdAt).toLocaleDateString()
-                            : 'N/A'
-                        }
                       </div>
                     </td>
                     <td>

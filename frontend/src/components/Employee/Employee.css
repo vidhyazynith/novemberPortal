@@ -926,6 +926,7 @@
   width: 100%;
   box-sizing: border-box;
   font-family: inherit;
+  min-width: 347.6px;
  
 }
 

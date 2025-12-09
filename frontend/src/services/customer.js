@@ -12,18 +12,16 @@ export const customerService = {
   },
  
   async createCustomer(customerData) {
-    // Format the address data for the new structure
-    const formattedData = this.formatCustomerData(customerData);
-    const response = await api.post('/Customer/add-customer', formattedData);
-    return response.data;
+  // Format the address data for the new structure
+  const response = await api.post('/Customer/add-customer', customerData);
+  return response.data;
   },
- 
+
   async updateCustomer(customerId, customerData) {
     // Format the address data for the new structure
-    const formattedData = this.formatCustomerData(customerData);
-    const response = await api.put(`/Customer/customers/${customerId}`, formattedData);
+    const response = await api.put(`/Customer/customers/${customerId}`, customerData);
     return response.data;
-  },
+  },  
  
   async deleteCustomer(customerId) {
     const response = await api.delete(`/Customer/customers/${customerId}`);
@@ -51,71 +49,46 @@ export const customerService = {
   },
  
   // Helper function to format customer data for the new address structure
-  formatCustomerData(customerData) {
-    // If address is already in the new format (has country.code and state.code), return as-is
-    if (customerData.address &&
-        customerData.address.country &&
-        typeof customerData.address.country === 'object' &&
-        customerData.address.country.code &&
-        customerData.address.state &&
-        typeof customerData.address.state === 'object' &&
-        customerData.address.state.code) {
-      return customerData;
-    }
- 
-    // If address is in old format or partial format, convert it
-    const formattedData = { ...customerData };
-   
-    if (formattedData.address) {
-      // Handle country - could be string or partial object
-      let countryObj = { code: '', name: '' };
-      if (formattedData.address.country) {
-        if (typeof formattedData.address.country === 'string') {
-          // Old format: country is a string
-          countryObj = {
-            code: formattedData.address.country.toUpperCase().substring(0, 2),
-            name: formattedData.address.country
-          };
-        } else if (formattedData.address.country.code) {
-          // Already has code, ensure name exists
-          countryObj = {
-            code: formattedData.address.country.code.toUpperCase(),
-            name: formattedData.address.country.name || formattedData.address.country.code
-          };
-        }
-      }
- 
-      // Handle state - could be string or partial object
-      let stateObj = { code: '', name: '' };
-      if (formattedData.address.state) {
-        if (typeof formattedData.address.state === 'string') {
-          // Old format: state is a string
-          stateObj = {
-            code: formattedData.address.state.toUpperCase().substring(0, 2),
-            name: formattedData.address.state
-          };
-        } else if (formattedData.address.state.code) {
-          // Already has code, ensure name exists
-          stateObj = {
-            code: formattedData.address.state.code.toUpperCase(),
-            name: formattedData.address.state.name || formattedData.address.state.code
-          };
-        }
-      }
- 
-      // Update the address with formatted objects
-      formattedData.address = {
-        addressLine1: formattedData.address.addressLine1 || '',
-        addressLine2: formattedData.address.addressLine2 || '',
-        country: countryObj,
-        state: stateObj,
-        city: formattedData.address.city || '',
-        pinCode: formattedData.address.pinCode || ''
-      };
-    }
- 
-    return formattedData;
-  },
+// Helper function to format customer data for the new address structure
+formatCustomerData(customerData) {
+  // const formattedData = { ...customerData };
+  
+  // // Don't modify if there's no address
+  // if (!formattedData.address) return formattedData;
+  
+  // // If address is already in the new format (has country.code and state.code), return as-is
+  // if (formattedData.address.country &&
+  //     formattedData.address.state &&
+  //     !formattedData.address.country.code && 
+  //     !formattedData.address.state.code) {
+  //   // This means we have the simplified frontend format, need to convert to backend format
+    
+  //   // Find country name from the countries list
+  //   const countryObj = countries.find(c => c.code === formattedData.address.country) || 
+  //                     { code: formattedData.address.country, name: formattedData.address.country };
+    
+  //   // Find state name from the states list
+  //   const stateObj = states.find(s => s.code === formattedData.address.state) || 
+  //                   { code: formattedData.address.state, name: formattedData.address.state };
+    
+  //   formattedData.address = {
+  //     addressLine1: formattedData.address.addressLine1 || '',
+  //     addressLine2: formattedData.address.addressLine2 || '',
+  //     country: {
+  //       code: countryObj.code,
+  //       name: countryObj.name
+  //     },
+  //     state: {
+  //       code: stateObj.code,
+  //       name: stateObj.name
+  //     },
+  //     city: formattedData.address.city || '',
+  //     pinCode: formattedData.address.pinCode || ''
+  //   };
+  // }
+  
+  return formattedData;
+},
  
   // Helper function to extract address for display
   formatAddressForDisplay(customer) {

@@ -107,8 +107,8 @@ customerSchema.pre("save", async function (next) {
  
 // Virtual for formatted payment terms display
 customerSchema.virtual('paymentTermsDisplay').get(function() {
-  if (this.paymentTerms === 1) return 'Net 1 day';
-  return `Net ${this.paymentTerms} days`;
+  if (this.paymentTerms === 1) return '1 day';
+  return `${this.paymentTerms} days`;
 });
  
 // Virtual for formatted address display

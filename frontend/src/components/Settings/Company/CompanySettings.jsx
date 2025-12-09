@@ -219,77 +219,7 @@ const CompanySettings = () => {
                 </button>
               )}
             </div>
- 
-                        {/* Add Image Upload Sections */}
-            <div className="image-upload-section">
-              <div className="image-upload-group">
-                <label>Company Logo</label>
-                <div className="image-upload-container">
-                  {companyInfo.logo?.url ? (
-                    <div className="image-preview">
-                      <img src={companyInfo.logo.url} alt="Company Logo" />
-                      <button
-                        type="button"
-                        className="delete-image-btn"
-                        onClick={() => handleImageDelete('logo')}
-                        disabled={uploading.logo}
-                      >
-                        {uploading.logo ? 'Deleting...' : 'Delete'}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="image-upload-placeholder">
-                      <input
-                        type="file"
-                        id="logo-upload"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'logo')}
-                        disabled={uploading.logo}
-                        style={{ display: 'none' }}
-                      />
-                      <label htmlFor="logo-upload" className="upload-btn">
-                        {uploading.logo ? 'Uploading...' : 'Upload Logo'}
-                      </label>
-                      <small>Recommended: 300x300px, PNG or JPG</small>
-                    </div>
-                  )}
-                </div>
-              </div>
- 
-              <div className="image-upload-group">
-                <label>Authorized Signature</label>
-                <div className="image-upload-container">
-                  {companyInfo.signature?.url ? (
-                    <div className="image-preview">
-                      <img src={companyInfo.signature.url} alt="Authorized Signature" />
-                      <button
-                        type="button"
-                        className="delete-image-btn"
-                        onClick={() => handleImageDelete('signature')}
-                        disabled={uploading.signature}
-                      >
-                        {uploading.signature ? 'Deleting...' : 'Delete'}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="image-upload-placeholder">
-                      <input
-                        type="file"
-                        id="signature-upload"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'signature')}
-                        disabled={uploading.signature}
-                        style={{ display: 'none' }}
-                      />
-                      <label htmlFor="signature-upload" className="upload-btn">
-                        {uploading.signature ? 'Uploading...' : 'Upload Signature'}
-                      </label>
-                      <small>Recommended: 200x100px, PNG with transparent background</small>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+  
  
             <div className="forms-grid">
               <div className="forms-group full-width">
@@ -373,7 +303,7 @@ const CompanySettings = () => {
               </div>
  
               <div className="forms-group">
-                <label htmlFor="taxId">Tax ID / VAT Number</label>
+                <label htmlFor="taxId">GST Number</label>
                 <input
                   type="text"
                   id="taxId"
@@ -443,6 +373,77 @@ const CompanySettings = () => {
               </div>
             )}
           </div>
+
+                      {/* Add Image Upload Sections */}
+            <div className="image-upload-section">
+              <div className="image-upload-group">
+                <label>Company Logo</label>
+                <div className="image-upload-container">
+                  {companyInfo.logo?.url ? (
+                    <div className="image-preview">
+                      <img src={companyInfo.logo.url} alt="Company Logo" />
+                      <button
+                        type="button"
+                        className="delete-image-btn"
+                        onClick={() => handleImageDelete('logo')}
+                        disabled={uploading.logo}
+                      >
+                        {uploading.logo ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="image-upload-placeholder">
+                      <input
+                        type="file"
+                        id="logo-upload"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'logo')}
+                        disabled={uploading.logo}
+                        style={{ display: 'none' }}
+                      />
+                      <label htmlFor="logo-upload" className="upload-btn">
+                        {uploading.logo ? 'Uploading...' : 'Upload Logo'}
+                      </label>
+                      <small>Recommended: 300x300px, PNG or JPG</small>
+                    </div>
+                  )}
+                </div>
+              </div>
+ 
+              <div className="image-upload-group">
+                <label>Authorized Signature</label>
+                <div className="image-upload-container">
+                  {companyInfo.signature?.url ? (
+                    <div className="image-preview">
+                      <img src={companyInfo.signature.url} alt="Authorized Signature" />
+                      <button
+                        type="button"
+                        className="delete-image-btn"
+                        onClick={() => handleImageDelete('signature')}
+                        disabled={uploading.signature}
+                      >
+                        {uploading.signature ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="image-upload-placeholder">
+                      <input
+                        type="file"
+                        id="signature-upload"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'signature')}
+                        disabled={uploading.signature}
+                        style={{ display: 'none' }}
+                      />
+                      <label htmlFor="signature-upload" className="upload-btn">
+                        {uploading.signature ? 'Uploading...' : 'Upload Signature'}
+                      </label>
+                      <small>Recommended: 200x100px, PNG with transparent background</small>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
         </div>
  
         {/* Right Side - Preview */}
