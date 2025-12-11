@@ -980,23 +980,22 @@ addressLines.forEach((line, index) => {
       });
     }
 
-    // Terms & Conditions section
     doc.fontSize(10).font('Helvetica-Bold').text("Terms & Conditions", leftColumn, currentY);
-    currentY += 15;
+      currentY += 15;
 
-    const defaultComments = [
-  "Please include the invoice number on your check"
-];
+  const defaultComments = [
+    "Please include the invoice number on your check"
+  ];
 
-// Create the dynamic first line
-const paymentDueText = `Total payment due in ${invoice.customerId.paymentTerms} days`;
+  // Create the dynamic first line
+  const paymentDueText = `Total payment due in ${invoice.customerId.paymentTerms} days`;
 
-// Print the full line dynamically
-doc.fontSize(10)
-   .font('Helvetica')
-   .text(paymentDueText, leftColumn + 10, currentY);
+  // Print the full line dynamically
+  doc.fontSize(10)
+    .font('Helvetica')
+    .text(paymentDueText, leftColumn + 10, currentY);
 
-currentY += 15;
+  currentY += 15;
 
 // Add remaining default comments with bullet points
 defaultComments.forEach((comment) => {

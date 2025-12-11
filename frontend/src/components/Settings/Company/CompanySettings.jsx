@@ -3,7 +3,8 @@ import {
   companyService,
   defaultCompanyInfo,
   currencyOptions,
-  fiscalYearOptions
+  fiscalYearOptions,
+  ifscOption
 } from '../../../services/company';
 import './CompanySettings.css';
 import PhoneInput from 'react-phone-number-input';
@@ -315,6 +316,81 @@ const CompanySettings = () => {
                   placeholder="TAX-123456789"
                 />
               </div>
+
+              <div className="forms-group">
+                <label htmlFor='accountno'>Account No</label>
+                <input
+                  type="number"
+                  id="accountno"
+                  name="accountno"
+                  value={companyInfo.accountNo}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={!isEditing ? 'disabled' :''}
+                  placeholder='345678987654567'
+                />
+              </div>
+
+              <div className="forms-group">
+                <label htmlFor='accountname'>Account Name</label>
+                <input
+                  type="text"
+                  id="accountname"
+                  name="accountname"
+                  value={companyInfo.accountName}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={!isEditing ? 'disabled' :''}
+                  placeholder='Zynit'
+                />
+              </div>
+
+              <div className="forms-group">
+                <label htmlFor='bank'>Bank</label>
+                <input
+                  type="text"
+                  id="bank"
+                  name="bank"
+                  value={companyInfo.bank}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={!isEditing ? 'disabled' :''}
+                  placeholder='SBI'
+                />
+              </div>
+
+              <div className="forms-group">
+                <label htmlFor='Ifsc'>IFSC</label>
+                <input
+                  type="text"
+                  id="Ifsc"
+                  name="Ifsc"
+                  value={companyInfo.ifsc}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={!isEditing ? 'disabled' :''}
+                  placeholder='SBI'
+                />
+              </div>
+
+              <div className="forms-group">
+                <label htmlFor='accountType'>Account type</label>
+                <select
+                  id="accountType"
+                  name="accountType"
+                  value={companyInfo.accountType}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={!isEditing ? 'disabled' : ''}
+                >
+                  {ifscOption.map(lik =>(
+                    <option key={lik} value={lik}>
+                        {lik}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
  
               <div className="forms-group">
                 <label htmlFor="currency">Default Currency</label>

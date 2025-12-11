@@ -66,7 +66,12 @@ export const defaultCompanyInfo = {
   website: '',
   taxId: '',
   currency: 'USD',
-  fiscalYear: 'January'
+  fiscalYear: 'January',
+  accountNo:0,
+  accountName:'',
+  bank:'',
+  ifsc:'',
+  accountType:''
 };
  
 // Export constants for dropdowns
@@ -79,5 +84,9 @@ export const currencyOptions = [
 export const fiscalYearOptions = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+export const ifscOption =[
+    'Savings','Current'
 ];
  

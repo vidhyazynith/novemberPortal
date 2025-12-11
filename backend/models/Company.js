@@ -72,10 +72,63 @@ const companySchema = new mongoose.Schema({
   signature: {
     public_id: { type: String, default: '' },
     url: { type: String, default: '' }
+  },
+  
+  accountNo: {
+    type: Number,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        return /^[0-9]{6,18}$/.test(v);
+      },
+      message: "Account Number must be between 6 and 18 digits"
+    }
+  },
+
+  accountName: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        return /^[A-Za-z ]+$/.test(v);
+      },
+      message: "Account name should contain only alphabets"
+    }
+  },
+
+  bank: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        return /^[A-Za-z ]+$/.test(v);
+      },
+      message: "Bank name should contain only alphabets"
+    }
+  },
+
+  ifsc: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    validate: {
+      validator: function (v) {
+        if (!v) return true;
+        // IFSC Format: ABCD0XXXXXX
+        return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v);
+      },
+      message: "Please enter a valid IFSC code (Example: HDFC0001234)"
+    }
+  },
+
+  accountType: {
+    type: String,
+    enum: ['Savings', 'Current', 'Salary', 'NRE', 'NRO', 'Other'],
+    default: 'Savings'
   }
-}, {
-  timestamps: true
-});
+
+}, { timestamps: true });
+
  
 companySchema.statics.getCompany = async function () {
   let company = await this.findOne();

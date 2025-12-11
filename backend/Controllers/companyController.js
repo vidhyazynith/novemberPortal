@@ -35,6 +35,11 @@ export const updateCompany = async (req, res) => {
       currency,
       website,
       fiscalYear,
+      accountNo,
+      accountName,
+      bank,
+      ifsc,
+      accountType
     } = req.body;
  
     if (!address) {
@@ -54,6 +59,11 @@ export const updateCompany = async (req, res) => {
       company.currency = currency;
       company.website = website;
       company.fiscalYear = fiscalYear;
+      company.accountNo = accountNo;
+      company.accountName = accountName;
+      company.bank = bank;
+      company.ifsc = ifsc;
+      company.accountType = accountType;
       await company.save();
     } else {
       company = await Company.create({
@@ -65,6 +75,11 @@ export const updateCompany = async (req, res) => {
         currency,
         website,
         fiscalYear,
+        accountNo,
+        accountName,
+        bank,
+        ifsc,
+        accountType
       });
     }
  
