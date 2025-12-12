@@ -107,6 +107,16 @@ const companySchema = new mongoose.Schema({
     }
   },
 
+  branch : {
+    type : String,
+    validate: {
+      validator: function (v) {
+        return /^[A-Za-z ]+$/.test(v);
+      },
+      message: "Branch name should contain only alphabets"
+    }
+  },
+
   ifsc: {
     type: String,
     trim: true,

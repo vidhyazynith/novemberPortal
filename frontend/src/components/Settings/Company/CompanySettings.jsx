@@ -360,6 +360,20 @@ const CompanySettings = () => {
               </div>
 
               <div className="forms-group">
+                <label htmlFor='branch'>Branch</label>
+                <input
+                  type="text"
+                  id="branch"
+                  name="branch"
+                  value={companyInfo.branch}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={!isEditing ? 'disabled' :''}
+                  placeholder='city'
+                />
+              </div>
+
+              <div className="forms-group">
                 <label htmlFor='Ifsc'>IFSC</label>
                 <input
                   type="text"

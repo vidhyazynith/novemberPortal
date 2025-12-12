@@ -70,6 +70,7 @@ export const defaultCompanyInfo = {
   accountNo:0,
   accountName:'',
   bank:'',
+  branch : '',
   ifsc:'',
   accountType:''
 };
