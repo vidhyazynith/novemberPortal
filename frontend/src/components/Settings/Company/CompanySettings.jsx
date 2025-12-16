@@ -318,30 +318,30 @@ const CompanySettings = () => {
               </div>
 
               <div className="forms-group">
-                <label htmlFor='accountno'>Account No</label>
+                <label htmlFor="accountno">Account No</label>
                 <input
-                  type="number"
+                  type="text"
                   id="accountno"
-                  name="accountno"
-                  value={companyInfo.accountNo}
+                  name="accountNo"
+                  value={companyInfo.accountNo || ""}
                   onChange={handleInputChange}
                   disabled={!isEditing}
-                  className={!isEditing ? 'disabled' :''}
-                  placeholder='345678987654567'
+                  className={!isEditing ? 'disabled' : ''}
+                  placeholder="Enter account number"
                 />
               </div>
 
               <div className="forms-group">
-                <label htmlFor='accountname'>Account Name</label>
+                <label htmlFor="accountname">Account Name</label>
                 <input
                   type="text"
                   id="accountname"
-                  name="accountname"
+                  name="accountName"
                   value={companyInfo.accountName}
                   onChange={handleInputChange}
                   disabled={!isEditing}
                   className={!isEditing ? 'disabled' :''}
-                  placeholder='Zynit'
+                  placeholder='enter account name'
                 />
               </div>
 
@@ -355,21 +355,7 @@ const CompanySettings = () => {
                   onChange={handleInputChange}
                   disabled={!isEditing}
                   className={!isEditing ? 'disabled' :''}
-                  placeholder='SBI'
-                />
-              </div>
-
-              <div className="forms-group">
-                <label htmlFor='branch'>Branch</label>
-                <input
-                  type="text"
-                  id="branch"
-                  name="branch"
-                  value={companyInfo.branch}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className={!isEditing ? 'disabled' :''}
-                  placeholder='city'
+                  placeholder='Enter the bank name'
                 />
               </div>
 
@@ -383,7 +369,7 @@ const CompanySettings = () => {
                   onChange={handleInputChange}
                   disabled={!isEditing}
                   className={!isEditing ? 'disabled' :''}
-                  placeholder='SBI'
+                  placeholder='Enter the IFSC code'
                 />
               </div>
 

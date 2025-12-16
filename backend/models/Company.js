@@ -88,12 +88,6 @@ const companySchema = new mongoose.Schema({
   accountName: {
     type: String,
     trim: true,
-    validate: {
-      validator: function (v) {
-        return /^[A-Za-z ]+$/.test(v);
-      },
-      message: "Account name should contain only alphabets"
-    }
   },
 
   bank: {
@@ -104,16 +98,6 @@ const companySchema = new mongoose.Schema({
         return /^[A-Za-z ]+$/.test(v);
       },
       message: "Bank name should contain only alphabets"
-    }
-  },
-
-  branch : {
-    type : String,
-    validate: {
-      validator: function (v) {
-        return /^[A-Za-z ]+$/.test(v);
-      },
-      message: "Branch name should contain only alphabets"
     }
   },
 

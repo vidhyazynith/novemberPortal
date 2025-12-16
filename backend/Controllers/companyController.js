@@ -38,7 +38,6 @@ export const updateCompany = async (req, res) => {
       accountNo,
       accountName,
       bank,
-      branch,
       ifsc,
       accountType
     } = req.body;
@@ -63,7 +62,6 @@ export const updateCompany = async (req, res) => {
       company.accountNo = accountNo;
       company.accountName = accountName;
       company.bank = bank;
-      company.branch = branch;
       company.ifsc = ifsc;
       company.accountType = accountType;
       await company.save();
@@ -80,7 +78,6 @@ export const updateCompany = async (req, res) => {
         accountNo,
         accountName,
         bank,
-        branch,
         ifsc,
         accountType
       });
