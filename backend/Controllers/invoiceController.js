@@ -965,6 +965,85 @@ addressLines.forEach((line, index) => {
        });
     currentY += wordsHeight + 20;
 
+    // ===== BANK ACCOUNT DETAILS SECTION - ADDED BELOW TERMS & CONDITIONS =====
+if (company.accountNo || company.bank || company.ifsc) {
+  doc.fontSize(10).font('Helvetica-Bold').text("Account Details", leftColumn, currentY);
+  currentY += 15;
+ 
+  let accountY = currentY;
+  const colonX = leftColumn + 80; // Fixed position for all colons
+  const valueX = colonX + 10; // Values start 10px after colon
+  const lineHeight = 12;
+ 
+  // Bank Name
+  if (company.bank) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Bank', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.bank, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // Account Name
+  if (company.accountName) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Account Name', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.accountName, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // Account Number
+  if (company.accountNo) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Account No', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.accountNo.toString(), valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // IFSC Code
+  if (company.ifsc) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('IFSC Code', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.ifsc, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // Account Type
+  if (company.accountType) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Account Type', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.accountType, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // Branch (if available)
+  if (company.branch) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Branch', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.branch, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  currentY = accountY + 10;
+} 
+
     // ===== OTHER COMMENTS SECTION =====
     if (notes && notes.trim() !== "") {
       doc.fontSize(11).font('Helvetica-Bold').text("OTHER COMMENTS", leftColumn, currentY);
@@ -984,11 +1063,11 @@ addressLines.forEach((line, index) => {
       currentY += 15;
 
   const defaultComments = [
-    "Please include the invoice number on your check"
+    "Please include the invoice number on your check."
   ];
 
   // Create the dynamic first line
-  const paymentDueText = `Total payment due in ${invoice.customerId.paymentTerms} days`;
+  const paymentDueText = `• Total payment due in ${customer.paymentTerms} days.`;
 
   // Print the full line dynamically
   doc.fontSize(10)
@@ -1440,71 +1519,85 @@ addressLines.forEach((line, index) => {
        });
     currentY += wordsHeight + 20;
 
-    // ===== BANK ACCOUNT DETAILS SECTION - ADDED BELOW TERMS & CONDITIONS =====
-    if (company.accountNo || company.bank || company.ifsc) {
-      doc.fontSize(10).font('Helvetica-Bold').text("Account Details", leftColumn, currentY);
-      currentY += 15;
-   
-     
-      let accountY = currentY;
-     
-      // Bank Name
-      if (company.bank) {
-        doc.fontSize(9).font('Helvetica-Bold')
-           .text('Bank:', leftColumn + 10, accountY);
-        doc.fontSize(9).font('Helvetica')
-           .text(company.bank, leftColumn + 50, accountY);
-        accountY += 12;
-      }
-     
-      // Account Name
-      if (company.accountName) {
-        doc.fontSize(9).font('Helvetica-Bold')
-           .text('Account Name:', leftColumn + 10, accountY);
-        doc.fontSize(9).font('Helvetica')
-           .text(company.accountName, leftColumn + 70, accountY);
-        accountY += 12;
-      }
-     
-      // Account Number
-      if (company.accountNo) {
-        doc.fontSize(9).font('Helvetica-Bold')
-           .text('Account No:', leftColumn + 10, accountY);
-        doc.fontSize(9).font('Helvetica')
-           .text(company.accountNo.toString(), leftColumn + 65, accountY);
-        accountY += 12;
-      }
-     
-      // IFSC Code
-      if (company.ifsc) {
-        doc.fontSize(9).font('Helvetica-Bold')
-           .text('IFSC Code:', leftColumn + 10, accountY);
-        doc.fontSize(9).font('Helvetica')
-           .text(company.ifsc, leftColumn + 65, accountY);
-        accountY += 12;
-      }
-     
-      // Account Type
-      if (company.accountType) {
-        doc.fontSize(9).font('Helvetica-Bold')
-           .text('Account Type:', leftColumn + 10, accountY);
-        doc.fontSize(9).font('Helvetica')
-           .text(company.accountType, leftColumn + 70, accountY);
-        accountY += 12;
-      }
-     
-      // Branch (if available)
-      if (company.branch) {
-        doc.fontSize(9).font('Helvetica-Bold')
-           .text('Branch:', leftColumn + 10, accountY);
-        doc.fontSize(9).font('Helvetica')
-           .text(company.branch, leftColumn + 50, accountY);
-        accountY += 12;
-      }
-     
-      currentY = accountY + 10;
-    }
-
+// ===== BANK ACCOUNT DETAILS SECTION - ADDED BELOW TERMS & CONDITIONS =====
+if (company.accountNo || company.bank || company.ifsc) {
+  doc.fontSize(10).font('Helvetica-Bold').text("Account Details", leftColumn, currentY);
+  currentY += 15;
+ 
+  let accountY = currentY;
+  const colonX = leftColumn + 80; // Fixed position for all colons
+  const valueX = colonX + 10; // Values start 10px after colon
+  const lineHeight = 12;
+ 
+  // Bank Name
+  if (company.bank) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Bank', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.bank, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // Account Name
+  if (company.accountName) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Account Name', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.accountName, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // Account Number
+  if (company.accountNo) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Account No', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.accountNo.toString(), valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // IFSC Code
+  if (company.ifsc) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('IFSC Code', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.ifsc, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // Account Type
+  if (company.accountType) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Account Type', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.accountType, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  // Branch (if available)
+  if (company.branch) {
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text('Branch', leftColumn + 10, accountY);
+    doc.fontSize(9).font('Helvetica-Bold')
+       .text(':', colonX, accountY);
+    doc.fontSize(9).font('Helvetica')
+       .text(company.branch, valueX, accountY);
+    accountY += lineHeight;
+  }
+ 
+  currentY = accountY + 10;
+} 
+ 
     // ===== OTHER COMMENTS SECTION =====
     if (invoice.notes && invoice.notes.trim() !== "") {
       doc.fontSize(11).font('Helvetica-Bold').text("OTHER COMMENTS", leftColumn, currentY);
@@ -1525,11 +1618,11 @@ addressLines.forEach((line, index) => {
     currentY += 15;
 
 const defaultComments = [
-  "Please include the invoice number on your check"
+  "Please include the invoice number on your check."
 ];
 
 // Create the dynamic first line
-const paymentDueText = `Total payment due in ${invoice.customerId.paymentTerms} days`;
+const paymentDueText = `• Total payment due in ${invoice.customerId.paymentTerms} days.`;
 
 // Print the full line dynamically
 doc.fontSize(10)

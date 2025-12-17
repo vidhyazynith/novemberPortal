@@ -19,7 +19,7 @@ const SalaryTemplateManagement = () => {
   const [formData, setFormData] = useState({
     designation: '',
     basicSalary: '',
-    remainingLeaves: 12,
+    // remainingLeaves: 12,
     earnings: [{ type: '', amount: 0, percentage: '', calculationType: 'amount' }],
     deductions: [{ type: '', amount: 0, percentage: '', calculationType: 'amount' }]
   });
@@ -236,7 +236,7 @@ const SalaryTemplateManagement = () => {
     setFormData({
       designation: '',
       basicSalary: '',
-      remainingLeaves: 12,
+      //remainingLeaves: 12,
       earnings: [{ type: '', amount: 0, percentage: '', calculationType: 'amount' }],
       deductions: [{ type: '', amount: 0, percentage: '', calculationType: 'amount' }]
     });
@@ -289,7 +289,7 @@ const SalaryTemplateManagement = () => {
     setFormData({
       designation: template.designation,
       basicSalary: template.basicSalary,
-      remainingLeaves: template.remainingLeaves || 12,
+      //remainingLeaves: template.remainingLeaves || 12,
       earnings: template.earnings.length > 0 ? template.earnings : [{ type: '', amount: 0, percentage: '', calculationType: 'amount' }],
       deductions: template.deductions.length > 0 ? template.deductions : [{ type: '', amount: 0, percentage: '', calculationType: 'amount' }]
     });
@@ -432,7 +432,7 @@ const SalaryTemplateManagement = () => {
                   <tr>
                     <th>Designation</th>
                     <th>Basic Salary</th>
-                    <th>Remaining Leaves</th>
+                    {/* <th>Remaining Leaves</th> */}
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -457,9 +457,9 @@ const SalaryTemplateManagement = () => {
                       <td>
                         <span className="currency">Rs.{template.basicSalary?.toFixed(2)}</span>
                       </td>
-                      <td>
+                      {/* <td>
                         <span>{template.remainingLeaves}</span>
-                      </td>
+                      </td> */}
                       <td>
                         <span className={`status-badge status-${template.status}`}>
                           {template.status}
@@ -550,10 +550,10 @@ const SalaryTemplateManagement = () => {
                       <span className="detail-label">Basic Salary:</span>
                       <span className="detail-value currency">Rs.{selectedTemplateDetail.basicSalary?.toFixed(2)}</span>
                     </div>
-                    <div className="detail-item">
+                    {/* <div className="detail-item">
                       <span className="detail-label">Remaining Leaves:</span>
                       <span className="detail-value">{selectedTemplateDetail.remainingLeaves}</span>
-                    </div>
+                    </div> */}
                     <div className="detail-item">
                       <span className="detail-label">Status:</span>
                       <span className={`status-badge status-${selectedTemplateDetail.status}`}>
@@ -685,7 +685,7 @@ const SalaryTemplateManagement = () => {
                           min="0"
                         />
                       </div>
-                      <div className="form-group">
+                      {/* <div className="form-group">
                         <label className="form-label">Remaining Leaves</label>
                         <input
                           type="number"
@@ -697,7 +697,7 @@ const SalaryTemplateManagement = () => {
                           max="31"
                         />
                         <small className="form-help">Default remaining leaves for new employees</small>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
 

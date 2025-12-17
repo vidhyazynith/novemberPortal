@@ -1479,8 +1479,8 @@ const handleEditSalary = async (salary) => {
                         value={formData.remainingLeaves}
                         onChange={handleInputChange}
                         min="0"
-                        disabled={!!editingSalary}
-                        style={!!editingSalary ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
+                        // disabled={!!editingSalary}
+                        // style={!!editingSalary ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                       />
                       <small className="form-help">
                         {!editingSalary

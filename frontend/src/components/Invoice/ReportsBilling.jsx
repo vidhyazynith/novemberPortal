@@ -219,9 +219,9 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
     const selectedCustomerData = activeCustomers.find(customer => customer._id === customerId);
    
     if (!selectedCustomerData) {
-    alert('Selected customer not found or inactive');
-    setSelectedCustomer('');
-    return;
+      alert('Selected customer not found or inactive');
+      setSelectedCustomer('');
+      return;
     }
 
     if (selectedCustomerData && selectedCustomerData.paymentTerms && invoiceDate) {
@@ -231,8 +231,13 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
      
       console.log(`✅ Auto-calculated due date: ${calculatedDueDate} (${selectedCustomerData.paymentTerms} days from invoice date)`);
     } else if (selectedCustomerData && !invoiceDate) {
-      // If no invoice date, clear due date but store customer for later calculation
-      setDueDate('');
+      // If no invoice date yet, use today's date
+      const today = new Date().toISOString().split('T')[0];
+      const calculatedDueDate = calculateDueDate(today, selectedCustomerData.paymentTerms);
+      setDueDate(calculatedDueDate);
+      console.log(`✅ Auto-calculated due date: ${calculatedDueDate} (${selectedCustomerData.paymentTerms} days from today)`);
+    } else {
+    setDueDate('');
     }
   };
 
@@ -240,14 +245,17 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
   const handleInvoiceDateChange = (date) => {
     setInvoiceDate(date);
    
-    // Recalculate due date if customer is selected and has payment terms
+    // IMMEDIATELY recalculate due date if customer is selected and has payment terms
     if (selectedCustomer) {
-      const selectedCustomerData = customers.find(customer => customer._id === selectedCustomer);
+      const selectedCustomerData = activeCustomers.find(customer => customer._id === selectedCustomer);
       if (selectedCustomerData && selectedCustomerData.paymentTerms && date) {
         const calculatedDueDate = calculateDueDate(date, selectedCustomerData.paymentTerms);
         setDueDate(calculatedDueDate);
-       
+      
         console.log(`✅ Re-calculated due date: ${calculatedDueDate} (${selectedCustomerData.paymentTerms} days from new invoice date)`);
+      } else if (selectedCustomerData && !date) {
+        // If date is cleared, clear due date too
+        setDueDate('');
       }
     }
   };
@@ -667,6 +675,27 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
 
   // Open invoice modal
   const openInvoiceModal = () => {
+    // ENSURE FRESH DATES EVERY TIME MODAL OPENS
+    const { today } = getDefaultDates();
+    setInvoiceDate(today || '');
+    setDueDate('');
+    setSelectedCustomer('');
+
+    // Reset other fields
+    setItems([{
+      ...defaultInvoiceItem,
+      description: "",
+      remarks: "",
+      unitPrice: "",
+      quantity: "",
+      amount: ""
+    }]);
+    setSelectedCustomer('');
+    setNotes("");
+    setTaxPercent('0');
+    setCurrency('USD');
+    setShowItemsTable(false);
+
     setShowInvoiceModal(true);
   };
 
@@ -686,9 +715,14 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
     setTaxPercent('0');
     setCurrency('USD');
     setShowItemsTable(false);
+
+  //RESET DATES TO DEFAULT WHEN CLOSING MODAL
+  const { today } = getDefaultDates();
+  setInvoiceDate(today || '');
+  setDueDate('');
   };
 
-  // Handle confirmed email sending with proper backend tracking
+// Handle confirmed email sending with proper backend tracking
 // ENHANCED: Handle email sending with automatic PDF download
 // ENHANCED: Handle email sending with automatic PDF attachment
 const handleConfirmSendEmail = async () => {
