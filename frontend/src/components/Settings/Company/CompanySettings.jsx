@@ -320,7 +320,7 @@ const CompanySettings = () => {
               <div className="forms-group">
                 <label htmlFor="accountno">Account No</label>
                 <input
-                  type="text"
+                  type="number"
                   id="accountno"
                   name="accountNo"
                   value={companyInfo.accountNo || ""}
@@ -346,7 +346,7 @@ const CompanySettings = () => {
               </div>
 
               <div className="forms-group">
-                <label htmlFor='bank'>Bank</label>
+                <label htmlFor="bank">Bank</label>
                 <input
                   type="text"
                   id="bank"
@@ -360,11 +360,11 @@ const CompanySettings = () => {
               </div>
 
               <div className="forms-group">
-                <label htmlFor='Ifsc'>IFSC</label>
+                <label htmlFor="Ifsc">IFSC</label>
                 <input
                   type="text"
-                  id="Ifsc"
-                  name="Ifsc"
+                  id="ifsc"
+                  name="ifsc"
                   value={companyInfo.ifsc}
                   onChange={handleInputChange}
                   disabled={!isEditing}

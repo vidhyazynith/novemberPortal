@@ -1440,6 +1440,71 @@ addressLines.forEach((line, index) => {
        });
     currentY += wordsHeight + 20;
 
+    // ===== BANK ACCOUNT DETAILS SECTION - ADDED BELOW TERMS & CONDITIONS =====
+    if (company.accountNo || company.bank || company.ifsc) {
+      doc.fontSize(10).font('Helvetica-Bold').text("Account Details", leftColumn, currentY);
+      currentY += 15;
+   
+     
+      let accountY = currentY;
+     
+      // Bank Name
+      if (company.bank) {
+        doc.fontSize(9).font('Helvetica-Bold')
+           .text('Bank:', leftColumn + 10, accountY);
+        doc.fontSize(9).font('Helvetica')
+           .text(company.bank, leftColumn + 50, accountY);
+        accountY += 12;
+      }
+     
+      // Account Name
+      if (company.accountName) {
+        doc.fontSize(9).font('Helvetica-Bold')
+           .text('Account Name:', leftColumn + 10, accountY);
+        doc.fontSize(9).font('Helvetica')
+           .text(company.accountName, leftColumn + 70, accountY);
+        accountY += 12;
+      }
+     
+      // Account Number
+      if (company.accountNo) {
+        doc.fontSize(9).font('Helvetica-Bold')
+           .text('Account No:', leftColumn + 10, accountY);
+        doc.fontSize(9).font('Helvetica')
+           .text(company.accountNo.toString(), leftColumn + 65, accountY);
+        accountY += 12;
+      }
+     
+      // IFSC Code
+      if (company.ifsc) {
+        doc.fontSize(9).font('Helvetica-Bold')
+           .text('IFSC Code:', leftColumn + 10, accountY);
+        doc.fontSize(9).font('Helvetica')
+           .text(company.ifsc, leftColumn + 65, accountY);
+        accountY += 12;
+      }
+     
+      // Account Type
+      if (company.accountType) {
+        doc.fontSize(9).font('Helvetica-Bold')
+           .text('Account Type:', leftColumn + 10, accountY);
+        doc.fontSize(9).font('Helvetica')
+           .text(company.accountType, leftColumn + 70, accountY);
+        accountY += 12;
+      }
+     
+      // Branch (if available)
+      if (company.branch) {
+        doc.fontSize(9).font('Helvetica-Bold')
+           .text('Branch:', leftColumn + 10, accountY);
+        doc.fontSize(9).font('Helvetica')
+           .text(company.branch, leftColumn + 50, accountY);
+        accountY += 12;
+      }
+     
+      currentY = accountY + 10;
+    }
+
     // ===== OTHER COMMENTS SECTION =====
     if (invoice.notes && invoice.notes.trim() !== "") {
       doc.fontSize(11).font('Helvetica-Bold').text("OTHER COMMENTS", leftColumn, currentY);
@@ -1479,6 +1544,7 @@ defaultComments.forEach((comment) => {
      .text(`• ${comment}`, leftColumn + 10, currentY);
   currentY += 15;
 });
+
 
     // ===== SIGNATURE SECTION =====
     const signatureY = 680;
