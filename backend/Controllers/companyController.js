@@ -31,7 +31,7 @@ export const updateCompany = async (req, res) => {
       address,
       phone,
       email,
-      taxId,
+      gstNumber: gstNumber,
       currency,
       website,
       fiscalYear,
@@ -55,7 +55,7 @@ export const updateCompany = async (req, res) => {
       company.address = address;
       company.phone = phone;
       company.email = email;
-      company.taxId = taxId;
+      company.gstNumber = gstNumber;
       company.currency = currency;
       company.website = website;
       company.fiscalYear = fiscalYear;
@@ -71,7 +71,7 @@ export const updateCompany = async (req, res) => {
         address,
         phone,
         email,
-        taxId,
+        gstNumber: gstNumber,
         currency,
         website,
         fiscalYear,

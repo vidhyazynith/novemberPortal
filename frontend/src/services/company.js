@@ -64,7 +64,7 @@ export const defaultCompanyInfo = {
   phone: '',
   email: '',
   website: '',
-  taxId: '',
+  gstNumber: '',
   currency: 'USD',
   fiscalYear: 'January',
   accountNo:0,

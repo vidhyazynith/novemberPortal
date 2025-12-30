@@ -701,6 +701,10 @@ if (!company.companyName || !company.address) {
       doc.text(`Email: ${company.email || "contact@company.com"}`, leftColumn, currentY);
       currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
 
+      doc.fontSize(10).font('Helvetica')
+        .text(`GST: ${company.gstNumber}`, leftColumn, currentY);
+      currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
+
       const lineY = Math.max(headerY + logoHeight, currentY) + 10;
       doc.moveTo(leftColumn, lineY).lineTo(pageWidth, lineY).stroke();
 
@@ -1255,6 +1259,10 @@ export const downloadInvoice = async (req, res) => {
       currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
 
       doc.text(`Email: ${company.email || "contact@company.com"}`, leftColumn, currentY);
+      currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
+
+      doc.fontSize(10).font('Helvetica')
+        .text(`GST: ${company.gstNumber}`, leftColumn, currentY);
       currentY += doc.heightOfString("A", { width: addressWidth }) + lineSpacing;
 
       const lineY = Math.max(headerY + logoHeight, currentY) + 10;

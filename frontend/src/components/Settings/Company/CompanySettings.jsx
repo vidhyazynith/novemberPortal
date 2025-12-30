@@ -304,16 +304,16 @@ const CompanySettings = () => {
               </div>
  
               <div className="forms-group">
-                <label htmlFor="taxId">GST Number</label>
+                <label htmlFor="gstNumber">GST Number</label>
                 <input
                   type="text"
-                  id="taxId"
-                  name="taxId"
-                  value={companyInfo.taxId}
+                  id="gstNumber"
+                  name="gstNumber"
+                  value={companyInfo.gstNumber}
                   onChange={handleInputChange}
                   disabled={!isEditing}
                   className={!isEditing ? 'disabled' : ''}
-                  placeholder="TAX-123456789"
+                  placeholder="Enter GST number"
                 />
               </div>
 
@@ -584,9 +584,9 @@ const CompanySettings = () => {
               </div>
              
               <div className="preview-item">
-                <span className="preview-label">Tax ID:</span>
+                <span className="preview-label">GST Number:</span>
                 <span className="preview-value">
-                  {companyInfo.taxId || <span className="missing-info">Not provided</span>}
+                  {companyInfo.gstNumber || <span className="missing-info">Not provided</span>}
                 </span>
               </div>
              

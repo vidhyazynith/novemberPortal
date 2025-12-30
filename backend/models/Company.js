@@ -50,7 +50,7 @@ const companySchema = new mongoose.Schema({
       message: 'Please enter a valid website URL'
     }
   },
-  taxId: { type: String, trim: true },
+  gstNumber: { type: String, default: '' ,trim: true},
   currency: {
     type: String,
     enum: ['USD', 'EURO', 'GBP', 'INR', 'CAD', 'AUD'],
